@@ -5,11 +5,13 @@ A CLI tool that fetches articles from URLs and summarizes them in Japanese using
 ## Features
 
 - 🌐 Fetches content from any URL
+- 📦 Supports multiple URLs in single command
 - 🤖 Falls back to headless browser if regular fetch fails
 - 📝 Generates 3-line Japanese summary
 - 🈲 Provides full Japanese translation
 - 💾 Saves output as Markdown files
 - ⚙️ Configurable API key storage
+- 📊 Shows detailed progress and results summary
 
 ## Prerequisites
 
@@ -56,9 +58,14 @@ You'll be prompted to enter your API key, which will be securely stored.
 ### Basic usage with URL argument
 
 ```bash
+# Single URL
 article-summarizer-jp https://example.com/article
+
+# Multiple URLs
+article-summarizer-jp https://example.com/article1 https://example.com/article2 https://example.com/article3
+
 # or use the short alias
-asumjp https://example.com/article
+asumjp https://example.com/article1 https://example.com/article2
 ```
 
 ### Interactive mode (prompts for URL)

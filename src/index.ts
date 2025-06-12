@@ -12,8 +12,8 @@ async function main() {
   program
     .name('article-summarizer')
     .description('日本語記事要約CLIツール')
-    .version('1.0.0')
-    .argument('[url]', 'summarize the article from the provided URL')
+    .version('1.1.0')
+    .argument('[urls...]', 'summarize articles from the provided URLs (supports multiple URLs)')
     .option('--config', 'configure API key')
     .parse();
 
@@ -27,24 +27,73 @@ async function main() {
       return;
     }
 
-    // Get URL from argument or prompt user
-    const url = args[0] || await getUrlFromUser();
+    // Get URLs from arguments or prompt user
+    let urls: string[] = [];
+    if (args.length > 0) {
+      urls = args;
+    } else {
+      const url = await getUrlFromUser();
+      urls = [url];
+    }
     
     if (!config.hasApiKey()) {
       console.log(chalk.yellow('APIキーが設定されていません。最初に設定を行ってください。'));
       await config.configure();
     }
 
-    console.log(chalk.blue('📄 コンテンツを取得中...'));
-    const { title, content, extractedUrl } = await fetchContent(url);
+    console.log(chalk.blue(`📄 ${urls.length}件の記事を処理開始します...\n`));
     
-    console.log(chalk.blue('🤖 記事を要約中...'));
-    const { summary, translation } = await summarizeContent(title, content);
+    const results: { success: boolean; filename?: string; url: string; error?: string }[] = [];
     
-    console.log(chalk.blue('💾 マークダウンファイルに保存中...'));
-    const filename = await saveToMarkdown(title, extractedUrl, summary, translation);
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      const current = i + 1;
+      const total = urls.length;
+      
+      try {
+        console.log(chalk.blue(`[${current}/${total}] ${url}`));
+        console.log(chalk.gray('  📄 コンテンツを取得中...'));
+        const { title, content, extractedUrl } = await fetchContent(url);
+        
+        console.log(chalk.gray('  🤖 記事を要約中...'));
+        const { summary, translation } = await summarizeContent(title, content);
+        
+        console.log(chalk.gray('  💾 マークダウンファイルに保存中...'));
+        const filename = await saveToMarkdown(title, extractedUrl, summary, translation);
+        
+        console.log(chalk.green(`  ✅ 完了: ${filename}\n`));
+        results.push({ success: true, filename, url });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.log(chalk.red(`  ❌ エラー: ${errorMessage}\n`));
+        results.push({ success: false, url, error: errorMessage });
+      }
+    }
     
-    console.log(chalk.green(`✨ 完了しました！ファイル: ${filename}`));
+    // Show summary
+    console.log(chalk.bold('\n📊 処理結果:'));
+    console.log(chalk.gray('='.repeat(50)));
+    
+    const successful = results.filter(r => r.success);
+    const failed = results.filter(r => !r.success);
+    
+    console.log(chalk.green(`✅ 成功: ${successful.length}件`));
+    if (successful.length > 0) {
+      successful.forEach(result => {
+        console.log(chalk.gray(`   📄 ${result.filename}`));
+      });
+    }
+    
+    if (failed.length > 0) {
+      console.log(chalk.red(`\n❌ 失敗: ${failed.length}件`));
+      failed.forEach(result => {
+        console.log(chalk.gray(`   🔗 ${result.url}`));
+        console.log(chalk.gray(`   💥 ${result.error}`));
+      });
+    }
+    
+    console.log(chalk.gray('='.repeat(50)));
+    console.log(chalk.bold(`🎯 合計: ${results.length}件中 ${successful.length}件成功\n`));
   } catch (error) {
     console.error(chalk.red('エラー:', error instanceof Error ? error.message : 'Unknown error'));
     process.exit(1);

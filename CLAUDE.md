@@ -12,8 +12,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Development Workflow
 ```bash
-# Test with a URL in development mode
+# Test with single URL in development mode
 npm run dev https://example.com/article
+
+# Test with multiple URLs
+npm run dev https://example.com/article1 https://example.com/article2
 
 # Build and test production version
 npm run build
