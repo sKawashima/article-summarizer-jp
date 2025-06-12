@@ -1,12 +1,8 @@
 import Configstore from 'configstore';
 import inquirer from 'inquirer';
 
-interface Config {
-  anthropicApiKey?: string;
-}
-
 class ConfigManager {
-  private store: Configstore<Config>;
+  private store: Configstore;
 
   constructor() {
     this.store = new Configstore('article-summarizer-jp', {});

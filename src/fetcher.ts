@@ -30,7 +30,7 @@ export async function fetchContent(url: string): Promise<FetchResult> {
     }
 
     const html = await response.text();
-    const { title, content } = extractTextContent(html);
+    const { title, content } = await extractTextContent(html);
 
     if (content.length > 100) {
       return { title, content, extractedUrl: parsedUrl.toString() };
@@ -41,7 +41,7 @@ export async function fetchContent(url: string): Promise<FetchResult> {
 
   // Fallback to headless browser
   const browser = await launch({
-    headless: 'new',
+    headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 
@@ -66,7 +66,7 @@ export async function fetchContent(url: string): Promise<FetchResult> {
 
     // Get page content
     const html = await page.content();
-    const { title, content } = extractTextContent(html);
+    const { title, content } = await extractTextContent(html);
 
     if (content.length < 100) {
       throw new Error('Could not extract meaningful content from the page');

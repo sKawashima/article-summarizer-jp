@@ -6,10 +6,10 @@ interface ExtractedContent {
   content: string;
 }
 
-export function extractTextContent(html: string): ExtractedContent {
+export async function extractTextContent(html: string): Promise<ExtractedContent> {
   try {
     // Try using article-extractor first
-    const article = extract(html);
+    const article = await extract(html);
     
     if (article?.content && article.content.length > 100) {
       // Clean up the content by removing HTML tags
@@ -37,7 +37,7 @@ export function extractTextContent(html: string): ExtractedContent {
   
   // Remove script and style elements
   const scripts = document.querySelectorAll('script, style, noscript');
-  scripts.forEach(el => el.remove());
+  scripts.forEach((el: Element) => el.remove());
   
   // Try to find main content areas
   const contentSelectors = [

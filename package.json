@@ -28,6 +28,7 @@
   "devDependencies": {
     "@types/configstore": "^6.0.2",
     "@types/inquirer": "^9.0.8",
+    "@types/jsdom": "^21.1.7",
     "@types/node": "^24.0.1",
     "tsx": "^4.20.1",
     "typescript": "^5.8.3"
