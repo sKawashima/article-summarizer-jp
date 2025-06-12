@@ -4,6 +4,8 @@ import { config } from './config.js';
 interface SummaryResult {
   summary: string;
   translation: string;
+  translatedTitle: string;
+  tags: string[];
 }
 
 function cleanTranslationOutput(rawTranslation: string): string {
@@ -85,6 +87,78 @@ Please format your response as:
     .trim();
 }
 
+async function generateTitleTranslation(title: string, anthropic: Anthropic): Promise<string> {
+  const systemPrompt = `You are an expert Japanese translator. Translate article titles accurately while maintaining their meaning and impact.`;
+  
+  const userPrompt = `Translate the following article title into natural Japanese:
+
+"${title}"
+
+Requirements:
+- Provide only the translated title, no explanations
+- Make it natural and readable in Japanese
+- Preserve the original meaning and tone`;
+  
+  const response = await anthropic.messages.create({
+    model: 'claude-3-5-sonnet-20241022',
+    max_tokens: 512,
+    temperature: 0.2,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }]
+  });
+  
+  return response.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('\n')
+    .trim();
+}
+
+async function generateTags(title: string, content: string, anthropic: Anthropic): Promise<string[]> {
+  const maxContentLength = 50000;
+  const truncatedContent = content.length > maxContentLength 
+    ? content.substring(0, maxContentLength) + '...\n[Content truncated for tag generation]'
+    : content;
+
+  const systemPrompt = `You are an expert content analyst who creates relevant tags for articles. Generate appropriate tags following Japanese conventions.`;
+
+  const userPrompt = `Analyze the following article and generate relevant tags.
+
+**Tag Guidelines:**
+- Use multiple tags (3-8 tags recommended)
+- Use Japanese for common terms, keep proper nouns in original language
+- Replace spaces with underscores
+- Replace commas with underscores
+- Focus on main topics, technologies, concepts, and themes
+- Make tags specific and useful for categorization
+
+Article Title: ${title}
+
+Article Content:
+${truncatedContent}
+
+Provide only the tags, separated by spaces, in the format: #tag1 #tag2 #tag3
+Example: #人工知能 #機械学習 #Python #データサイエンス`;
+
+  const response = await anthropic.messages.create({
+    model: 'claude-3-5-sonnet-20241022',
+    max_tokens: 512,
+    temperature: 0.3,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }]
+  });
+
+  const tagsText = response.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('\n')
+    .trim();
+
+  // Extract tags from the response
+  const tagMatches = tagsText.match(/#[^\s]+/g) || [];
+  return tagMatches.map(tag => tag.substring(1)); // Remove # prefix
+}
+
 async function generateTranslation(title: string, content: string, anthropic: Anthropic): Promise<string> {
   // Use larger limit for translation and higher-tier model
   const maxContentLength = 150000;
@@ -140,10 +214,16 @@ export async function summarizeContent(title: string, content: string): Promise<
     console.log('    🔄 要約を生成中...');
     const summary = await generateSummary(title, content, anthropic);
     
+    console.log('    🔄 タイトルを翻訳中...');
+    const translatedTitle = await generateTitleTranslation(title, anthropic);
+    
+    console.log('    🔄 タグを生成中...');
+    const tags = await generateTags(title, content, anthropic);
+    
     console.log('    🔄 全文翻訳を生成中...');
     const translation = await generateTranslation(title, content, anthropic);
 
-    return { summary, translation };
+    return { summary, translation, translatedTitle, tags };
   } catch (error) {
     if (error instanceof Anthropic.APIError) {
       throw new Error(`Claude API error: ${error.message}`);

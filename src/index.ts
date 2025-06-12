@@ -56,10 +56,10 @@ async function main() {
         const { title, content, extractedUrl } = await fetchContent(url);
         
         console.log(chalk.gray('  🤖 記事を要約・翻訳中...'));
-        const { summary, translation } = await summarizeContent(title, content);
+        const { summary, translation, translatedTitle, tags } = await summarizeContent(title, content);
         
         console.log(chalk.gray('  💾 マークダウンファイルに保存中...'));
-        const filename = await saveToMarkdown(title, extractedUrl, summary, translation);
+        const filename = await saveToMarkdown(translatedTitle, extractedUrl, summary, translation, tags);
         
         console.log(chalk.green(`  ✅ 完了: ${filename}\n`));
         results.push({ success: true, filename, url });
