@@ -7,6 +7,7 @@ import { fetchContent } from './fetcher.js';
 import { summarizeContent } from './summarizer.js';
 import { saveToMarkdown } from './markdown.js';
 import { getUrlFromUser } from './input.js';
+import { startWatchMode } from './watch.js';
 
 async function main() {
   program
@@ -15,6 +16,7 @@ async function main() {
     .version('1.1.0')
     .argument('[urls...]', 'summarize articles from the provided URLs (supports multiple URLs)')
     .option('--config', 'configure API key')
+    .option('-w, --watch', 'start in watch mode for continuous URL input')
     .parse();
 
   const options = program.opts();
@@ -24,6 +26,11 @@ async function main() {
     if (options.config) {
       await config.configure();
       console.log(chalk.green('✓ 設定が完了しました'));
+      return;
+    }
+
+    if (options.watch) {
+      await startWatchMode();
       return;
     }
 
