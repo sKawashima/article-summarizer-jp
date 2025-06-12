@@ -217,34 +217,18 @@ async function generateTranslation(title: string, htmlContent: string, anthropic
 
   const systemPrompt = `You are an expert Japanese translator with deep understanding of both English and Japanese languages. Your specialty is producing complete, faithful translations that preserve every detail of the original content while maintaining proper formatting. You MUST translate the entire content without any omissions or summarization. Always write in polite Japanese (ですます調).`;
 
-  const maxHtmlLength = 50000;
+  // Use much larger limit to preserve full content
+  const maxHtmlLength = 120000;
   const truncatedHtml = htmlContent.length > maxHtmlLength 
     ? htmlContent.substring(0, maxHtmlLength) + '...'
     : htmlContent;
   
-  const userPrompt = `Translate the following article HTML into Japanese with proper markdown formatting.
+  const userPrompt = `Translate the following article HTML into Japanese.
 
 **REQUIREMENTS:**
 - Translate EVERY sentence and paragraph - do not omit any content
-- Convert HTML to markdown while preserving structure
+- Output in proper markdown format
 - Use polite Japanese (ですます調) throughout
-- **HTML TO MARKDOWN CONVERSION:**
-  - Convert <pre><code> or <code> blocks to \`\`\` markdown code blocks
-  - Convert <strong> or <b> to **bold** markdown
-  - Convert <em> or <i> to *italic* markdown
-  - Convert <h1>, <h2>, etc. to # markdown headers
-  - **LIST CONVERSION - VERY IMPORTANT:**
-    - Convert <ul><li>item</li><li>item</li></ul> to:
-      - item
-      - item
-    - Convert <ol><li>item</li><li>item</li></ol> to:
-      1. item
-      2. item
-    - Each list item should be on its own line with proper markdown bullet/number
-    - Maintain list hierarchy for nested lists
-  - Preserve line breaks and paragraph structure
-  - Remove HTML tags but keep the formatting as markdown
-- **SPECIAL ATTENTION TO LISTS:** Look for any list structures in the HTML and ensure they are properly converted to markdown format
 - Do not include any explanations, introductions, or meta-commentary
 - Output ONLY the translated markdown text, nothing else
 - Start directly with the translated content
