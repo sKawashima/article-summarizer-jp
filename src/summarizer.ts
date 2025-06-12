@@ -216,6 +216,10 @@ export async function summarizeContent(title: string, content: string): Promise<
     
     console.log('    🔄 タイトルを翻訳中...');
     const translatedTitle = await generateTitleTranslation(title, anthropic);
+    console.log(`    📋 翻訳されたタイトル: ${translatedTitle}`);
+    
+    // Fallback if translation fails or returns empty
+    const finalTitle = translatedTitle.trim() || title;
     
     console.log('    🔄 タグを生成中...');
     const tags = await generateTags(title, content, anthropic);
@@ -223,7 +227,7 @@ export async function summarizeContent(title: string, content: string): Promise<
     console.log('    🔄 全文翻訳を生成中...');
     const translation = await generateTranslation(title, content, anthropic);
 
-    return { summary, translation, translatedTitle, tags };
+    return { summary, translation, translatedTitle: finalTitle, tags };
   } catch (error) {
     if (error instanceof Anthropic.APIError) {
       throw new Error(`Claude API error: ${error.message}`);
