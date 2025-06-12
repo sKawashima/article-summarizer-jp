@@ -48,10 +48,6 @@ function cleanTranslationOutput(rawTranslation: string): string {
 }
 
 async function generateSummary(title: string, content: string, anthropic: Anthropic): Promise<string> {
-  const maxContentLength = 80000; // Larger limit for summary
-  const truncatedContent = content.length > maxContentLength 
-    ? content.substring(0, maxContentLength) + '...\n[Content truncated due to length]'
-    : content;
 
   const systemPrompt = `You are an expert Japanese language summarization specialist. You excel at creating concise, informative summaries in polite Japanese (ですます調).`;
 
@@ -66,7 +62,7 @@ async function generateSummary(title: string, content: string, anthropic: Anthro
 Article Title: ${title}
 
 Article Content:
-${truncatedContent}
+${content}
 
 Please format your response as:
 1. [First key point in polite Japanese]
@@ -117,10 +113,6 @@ async function generateTitleTranslation(title: string, anthropic: Anthropic): Pr
 }
 
 async function generateTags(title: string, content: string, anthropic: Anthropic): Promise<string[]> {
-  const maxContentLength = 50000;
-  const truncatedContent = content.length > maxContentLength 
-    ? content.substring(0, maxContentLength) + '...\n[Content truncated for tag generation]'
-    : content;
 
   const systemPrompt = `You are an expert content analyst who creates relevant tags for articles. Generate appropriate tags following Japanese conventions.`;
 
@@ -137,7 +129,7 @@ async function generateTags(title: string, content: string, anthropic: Anthropic
 Article Title: ${title}
 
 Article Content:
-${truncatedContent}
+${content}
 
 Provide only the tags, separated by spaces, in the format: #tag1 #tag2 #tag3
 Example: #人工知能 #機械学習 #Python #データサイエンス`;
@@ -234,11 +226,10 @@ ${htmlContent}`
 
   // Use Sonnet as default for better speed
   const model = 'claude-3-5-sonnet-20241022';
-  const maxTokens = 8192;
   
   const response = await anthropic.messages.create({
     model,
-    max_tokens: maxTokens,
+    max_tokens: 100000,
     temperature: 0.1,
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }]
