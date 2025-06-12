@@ -4,6 +4,88 @@ import { JSDOM } from 'jsdom';
 interface ExtractedContent {
   title: string;
   content: string;
+  imageUrl?: string;
+}
+
+function extractThumbnailImage(html: string): string | undefined {
+  const dom = new JSDOM(html);
+  const document = dom.window.document;
+  
+  // Priority order for image extraction
+  const imageSelectors = [
+    'meta[property="og:image"]',
+    'meta[name="twitter:image"]',
+    'meta[property="og:image:url"]',
+    'meta[name="thumbnail"]',
+    'link[rel="image_src"]',
+    'article img',
+    'main img',
+    '.content img',
+    '.article-body img',
+    '.post-content img',
+    '.entry-content img',
+    'img'
+  ];
+  
+  for (const selector of imageSelectors) {
+    const element = document.querySelector(selector);
+    let imageUrl: string | null = null;
+    
+    if (element) {
+      if (element.tagName === 'META') {
+        imageUrl = element.getAttribute('content');
+      } else if (element.tagName === 'LINK') {
+        imageUrl = element.getAttribute('href');
+      } else if (element.tagName === 'IMG') {
+        imageUrl = element.getAttribute('src') || element.getAttribute('data-src');
+      }
+      
+      if (imageUrl && isValidImageUrl(imageUrl)) {
+        // Convert relative URLs to absolute
+        if (imageUrl.startsWith('/')) {
+          const baseUrl = document.querySelector('base')?.getAttribute('href') || 
+                         window.location?.origin || '';
+          imageUrl = new URL(imageUrl, baseUrl).href;
+        }
+        return imageUrl;
+      }
+    }
+  }
+  
+  return undefined;
+}
+
+function isValidImageUrl(url: string): boolean {
+  if (!url || url.length < 10) return false;
+  
+  // Check for common image extensions
+  const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i;
+  if (imageExtensions.test(url)) return true;
+  
+  // Check for image URLs without extensions (common in CDNs)
+  const commonImageDomains = [
+    'cloudinary.com',
+    'imgur.com',
+    'amazonaws.com',
+    'googleusercontent.com',
+    'unsplash.com',
+    'pixabay.com',
+    'pexels.com'
+  ];
+  
+  if (commonImageDomains.some(domain => url.includes(domain))) return true;
+  
+  // Avoid placeholder or icon images
+  const excludePatterns = [
+    /\b(logo|icon|avatar|placeholder|default)\b/i,
+    /\b(favicon|sprite|button)\b/i,
+    /\b(1x1|pixel|transparent)\b/i,
+    /\.(ico|svg)$/i
+  ];
+  
+  if (excludePatterns.some(pattern => pattern.test(url))) return false;
+  
+  return url.startsWith('http');
 }
 
 function cleanExtractedContent(content: string): string {
@@ -79,6 +161,9 @@ function isLikelyUIElement(line: string): boolean {
 }
 
 export async function extractTextContent(html: string): Promise<ExtractedContent> {
+  // Extract thumbnail image first
+  const imageUrl = extractThumbnailImage(html);
+  
   try {
     // Try using article-extractor first
     const article = await extract(html);
@@ -94,7 +179,8 @@ export async function extractTextContent(html: string): Promise<ExtractedContent
       if (cleanedContent.length > 100) {
         return {
           title: article.title || 'Untitled',
-          content: cleanedContent.trim()
+          content: cleanedContent.trim(),
+          imageUrl
         };
       }
     }
@@ -150,6 +236,7 @@ export async function extractTextContent(html: string): Promise<ExtractedContent
   
   return {
     title: title.trim(),
-    content: cleanedContent.trim()
+    content: cleanedContent.trim(),
+    imageUrl
   };
 }

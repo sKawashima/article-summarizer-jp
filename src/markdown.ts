@@ -6,7 +6,8 @@ export async function saveToMarkdown(
   url: string,
   summary: string,
   translation: string,
-  tags: string[]
+  tags: string[],
+  imageUrl?: string
 ): Promise<string> {
   // Format current date
   const now = new Date();
@@ -26,8 +27,12 @@ export async function saveToMarkdown(
   // Format tags
   const tagString = tags.length > 0 ? `#${tags.join(' #')}` : '';
   
-  // Create markdown content
-  const markdownContent = `[${translatedTitle}](${url})
+  // Create markdown content with optional image
+  const imageSection = imageUrl ? `![thumbnail](${imageUrl})
+
+` : '';
+  
+  const markdownContent = `${imageSection}[${translatedTitle}](${url})
 scrap at [[${dateStr}]]
 
 ${tagString}
