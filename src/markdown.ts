@@ -27,15 +27,15 @@ export async function saveToMarkdown(
   // Format tags
   const tagString = tags.length > 0 ? `#${tags.join(' #')}` : '';
   
-  // Create markdown content with optional image
+  // Create markdown content with thumbnail before tags
   const imageSection = imageUrl ? `![thumbnail](${imageUrl})
 
 ` : '';
   
-  const markdownContent = `${imageSection}[${translatedTitle}](${url})
+  const markdownContent = `[${translatedTitle}](${url})
 scrap at [[${dateStr}]]
 
-${tagString}
+${imageSection}${tagString}
 
 ## 3行まとめ
 ${summary}

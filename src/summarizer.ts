@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from './config.js';
+import { extractThumbnailFromHtml } from './thumbnailExtractor.js';
 
 interface SummaryResult {
   summary: string;
@@ -153,57 +154,7 @@ Example: #人工知能 #機械学習 #Python #データサイエンス`;
   return tagMatches.map(tag => tag.substring(1)); // Remove # prefix
 }
 
-async function extractThumbnailFromHtml(htmlContent: string, title: string, anthropic: Anthropic): Promise<string | undefined> {
-  const systemPrompt = `You are an expert at analyzing HTML content to find suitable thumbnail images for articles. You should identify the best image that represents the article content.`;
-  
-  const maxHtmlLength = 20000;
-  const truncatedHtml = htmlContent.length > maxHtmlLength 
-    ? htmlContent.substring(0, maxHtmlLength) + '...'
-    : htmlContent;
-  
-  const userPrompt = `Analyze this HTML content and find the best thumbnail image for the article.
-
-Article Title: "${title}"
-
-HTML Content:
-${truncatedHtml}
-
-Instructions:
-1. Look for images in the HTML (img tags, meta og:image, twitter:image, etc.)
-2. Choose the most suitable image as a thumbnail:
-   - Prefer content-related images over logos/icons
-   - Choose the first significant image in the article if no meta image
-   - Avoid small icons, avatars, logos, advertisements
-   - Prefer larger, high-quality images
-3. Return ONLY the image URL, nothing else
-4. If no suitable image is found, return "NONE"
-
-Extract the best thumbnail image URL:`;
-  
-  try {
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 8192,
-      temperature: 0.1,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }]
-    });
-    
-    const result = response.content
-      .filter(block => block.type === 'text')
-      .map(block => block.text)
-      .join('')
-      .trim();
-    
-    if (result === 'NONE' || !result.startsWith('http')) {
-      return undefined;
-    }
-    
-    return result;
-  } catch {
-    return undefined;
-  }
-}
+// LLM-based thumbnail extraction removed - now using HTML parsing approach
 
 async function generateTranslation(title: string, htmlContent: string, anthropic: Anthropic): Promise<string> {
 
@@ -244,7 +195,7 @@ ${htmlContent}`
   return cleanTranslationOutput(rawTranslation);
 }
 
-export async function summarizeContent(title: string, content: string, htmlContent: string): Promise<SummaryResult> {
+export async function summarizeContent(title: string, content: string, htmlContent: string, baseUrl: string): Promise<SummaryResult> {
   const apiKey = config.getApiKey();
   const anthropic = new Anthropic({ apiKey });
 
@@ -259,7 +210,7 @@ export async function summarizeContent(title: string, content: string, htmlConte
     const finalTitle = translatedTitle.trim() || title;
     
     console.log('    🔄 サムネイル画像を抽出中...');
-    const validImageUrl = await extractThumbnailFromHtml(htmlContent, title, anthropic);
+    const validImageUrl = extractThumbnailFromHtml(htmlContent, baseUrl);
     
     console.log('    🔄 タグを生成中...');
     const tags = await generateTags(title, content, anthropic);
