@@ -88,16 +88,17 @@ Please format your response as:
 }
 
 async function generateTitleTranslation(title: string, anthropic: Anthropic): Promise<string> {
-  const systemPrompt = `You are an expert Japanese translator. Translate article titles accurately while maintaining their meaning and impact.`;
+  const systemPrompt = `You are an expert Japanese translator. You must always translate English text into Japanese. Never respond in English.`;
   
-  const userPrompt = `Translate the following article title into natural Japanese:
+  const userPrompt = `以下の英語記事タイトルを自然な日本語に翻訳してください：
 
 "${title}"
 
-Requirements:
-- Provide only the translated title, no explanations
-- Make it natural and readable in Japanese
-- Preserve the original meaning and tone`;
+要件：
+- 翻訳されたタイトルのみを出力してください（説明は不要）
+- 自然で読みやすい日本語にしてください
+- 元の意味とトーンを保持してください
+- 必ず日本語で回答してください`;
   
   const response = await anthropic.messages.create({
     model: 'claude-3-5-sonnet-20241022',
