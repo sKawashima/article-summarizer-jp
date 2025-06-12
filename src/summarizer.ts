@@ -4,7 +4,7 @@ import { extractThumbnailFromHtml } from './thumbnailExtractor.js';
 
 interface SummaryResult {
   summary: string;
-  translation: string;
+  details: string;
   translatedTitle: string;
   tags: string[];
   validImageUrl?: string;
@@ -59,15 +59,16 @@ async function generateSummary(title: string, content: string, anthropic: Anthro
 - Use polite Japanese (ですます調)
 - Be concise but informative
 - Focus on the main ideas and conclusions
+- No empty lines between the 3 lines
 
 Article Title: ${title}
 
 Article Content:
 ${content}
 
-Please format your response as:
+Please format your response as three consecutive lines:
 1. [First key point in polite Japanese]
-2. [Second key point in polite Japanese]
+2. [Second key point in polite Japanese]  
 3. [Third key point in polite Japanese]`;
 
   const response = await anthropic.messages.create({
@@ -156,19 +157,23 @@ Example: #人工知能 #機械学習 #Python #データサイエンス`;
 
 // LLM-based thumbnail extraction removed - now using HTML parsing approach
 
-async function generateTranslation(title: string, htmlContent: string, anthropic: Anthropic): Promise<string> {
+async function generateDetails(title: string, htmlContent: string, anthropic: Anthropic): Promise<string> {
 
-  const systemPrompt = `You are an expert Japanese translator with deep understanding of both English and Japanese languages. Your specialty is producing complete, faithful translations that preserve every detail of the original content while maintaining proper formatting. You MUST translate the entire content without any omissions or summarization. Always write in polite Japanese (ですます調).`;
+  const systemPrompt = `You are an expert Japanese content analyst and translator. Your specialty is creating detailed, comprehensive descriptions of articles in Japanese while preserving key information and media elements.`;
 
-  const userPrompt = `Translate the following article HTML into Japanese.
+  const userPrompt = `Create a detailed Japanese description of the following article content.
 
 **REQUIREMENTS:**
-- Translate EVERY sentence and paragraph - do not omit any content
-- Output in proper markdown format
+- Provide detailed coverage of the main content (not a full translation, but comprehensive details)
 - Use polite Japanese (ですます調) throughout
-- Do not include any explanations, introductions, or meta-commentary
-- Output ONLY the translated markdown text, nothing else
-- Start directly with the translated content
+- Output in proper markdown format
+- Include any images or videos found in the content as markdown elements:
+  - For images: ![description](url) or ![alt text](url)
+  - For videos: [Video: description](url) or embed code if available
+- Preserve important technical details, quotes, and examples
+- Structure with appropriate headers and formatting
+- Do not include explanations, introductions, or meta-commentary
+- Start directly with the detailed content
 
 Article Title: ${title}
 
@@ -186,13 +191,13 @@ ${htmlContent}`
     messages: [{ role: 'user', content: userPrompt }]
   });
 
-  const rawTranslation = response.content
+  const rawDetails = response.content
     .filter(block => block.type === 'text')
     .map(block => block.text)
     .join('\n')
     .trim();
   
-  return cleanTranslationOutput(rawTranslation);
+  return cleanTranslationOutput(rawDetails);
 }
 
 export async function summarizeContent(title: string, content: string, htmlContent: string, baseUrl: string): Promise<SummaryResult> {
@@ -215,10 +220,10 @@ export async function summarizeContent(title: string, content: string, htmlConte
     console.log('    🔄 タグを生成中...');
     const tags = await generateTags(title, content, anthropic);
     
-    console.log('    🔄 全文翻訳を生成中...');
-    const translation = await generateTranslation(title, htmlContent, anthropic);
+    console.log('    🔄 詳細を生成中...');
+    const details = await generateDetails(title, htmlContent, anthropic);
 
-    return { summary, translation, translatedTitle: finalTitle, tags, validImageUrl };
+    return { summary, details, translatedTitle: finalTitle, tags, validImageUrl };
   } catch (error) {
     if (error instanceof Anthropic.APIError) {
       throw new Error(`Claude API error: ${error.message}`);

@@ -5,7 +5,7 @@ export async function saveToMarkdown(
   translatedTitle: string,
   url: string,
   summary: string,
-  translation: string,
+  details: string,
   tags: string[],
   imageUrl?: string
 ): Promise<string> {
@@ -40,8 +40,8 @@ ${imageSection}${tagString}
 ## 3行まとめ
 ${summary}
 
-## 全文和訳
-${translation}
+## 詳細
+${details}
 
 #web_scrap
 `;
