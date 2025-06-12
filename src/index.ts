@@ -55,7 +55,7 @@ async function main() {
         console.log(chalk.gray('  📄 コンテンツを取得中...'));
         const { title, content, extractedUrl } = await fetchContent(url);
         
-        console.log(chalk.gray('  🤖 記事を要約中...'));
+        console.log(chalk.gray('  🤖 記事を要約・翻訳中...'));
         const { summary, translation } = await summarizeContent(title, content);
         
         console.log(chalk.gray('  💾 マークダウンファイルに保存中...'));
