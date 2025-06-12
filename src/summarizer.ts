@@ -71,7 +71,7 @@ Please format your response as:
 
   const response = await anthropic.messages.create({
     model: 'claude-3-5-sonnet-20241022',
-    max_tokens: 1024,
+    max_tokens: 8192,
     temperature: 0.3,
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }]
@@ -99,7 +99,7 @@ async function generateTitleTranslation(title: string, anthropic: Anthropic): Pr
   
   const response = await anthropic.messages.create({
     model: 'claude-3-5-sonnet-20241022',
-    max_tokens: 512,
+    max_tokens: 8192,
     temperature: 0.2,
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }]
@@ -136,7 +136,7 @@ Example: #人工知能 #機械学習 #Python #データサイエンス`;
 
   const response = await anthropic.messages.create({
     model: 'claude-3-5-sonnet-20241022',
-    max_tokens: 512,
+    max_tokens: 8192,
     temperature: 0.3,
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }]
@@ -183,7 +183,7 @@ Extract the best thumbnail image URL:`;
   try {
     const response = await anthropic.messages.create({
       model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 200,
+      max_tokens: 8192,
       temperature: 0.1,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }]
@@ -229,7 +229,7 @@ ${htmlContent}`
   
   const response = await anthropic.messages.create({
     model,
-    max_tokens: 100000,
+    max_tokens: 8192,
     temperature: 0.1,
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }]
