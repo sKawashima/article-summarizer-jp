@@ -120,6 +120,55 @@ npm run build
 npm run lint
 ```
 
+## Publishing to npm
+
+If you want to publish this package to npm:
+
+### Prerequisites
+- npm account (create at https://www.npmjs.com/)
+- npm CLI logged in (`npm login`)
+
+### Steps
+
+1. **Update version** (choose one):
+   ```bash
+   # Patch version (1.1.0 → 1.1.1)
+   npm version patch
+   
+   # Minor version (1.1.0 → 1.2.0)
+   npm version minor
+   
+   # Major version (1.1.0 → 2.0.0)
+   npm version major
+   ```
+
+2. **Build the project**:
+   ```bash
+   npm run build
+   ```
+
+3. **Publish to npm**:
+   ```bash
+   # Public package
+   npm publish
+   
+   # Scoped package (if package name starts with @)
+   npm publish --access public
+   ```
+
+4. **Verify publication**:
+   ```bash
+   npm info article-summarizer-jp
+   ```
+
+### Publishing checklist
+- [ ] Tests pass (`npm test` if available)
+- [ ] Build succeeds (`npm run build`)
+- [ ] README is up to date
+- [ ] Version is updated appropriately
+- [ ] All changes are committed to git
+- [ ] Package.json metadata is correct (description, keywords, etc.)
+
 ## Troubleshooting
 
 ### "API key not configured" error
