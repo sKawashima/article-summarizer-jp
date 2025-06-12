@@ -6,7 +6,7 @@ interface FetchResult {
   title: string;
   content: string;
   extractedUrl: string;
-  imageUrl?: string;
+  htmlContent: string;
 }
 
 export async function fetchContent(url: string): Promise<FetchResult> {
@@ -31,10 +31,10 @@ export async function fetchContent(url: string): Promise<FetchResult> {
     }
 
     const html = await response.text();
-    const { title, content, imageUrl } = await extractTextContent(html);
+    const { title, content, htmlContent } = await extractTextContent(html);
 
     if (content.length > 100) {
-      return { title, content, extractedUrl: parsedUrl.toString(), imageUrl };
+      return { title, content, extractedUrl: parsedUrl.toString(), htmlContent };
     }
   } catch (error) {
     console.log('Regular fetch failed, trying headless browser...');
@@ -67,13 +67,13 @@ export async function fetchContent(url: string): Promise<FetchResult> {
 
     // Get page content
     const html = await page.content();
-    const { title, content, imageUrl } = await extractTextContent(html);
+    const { title, content, htmlContent } = await extractTextContent(html);
 
     if (content.length < 100) {
       throw new Error('Could not extract meaningful content from the page');
     }
 
-    return { title, content, extractedUrl: parsedUrl.toString(), imageUrl };
+    return { title, content, extractedUrl: parsedUrl.toString(), htmlContent };
   } finally {
     await browser.close();
   }

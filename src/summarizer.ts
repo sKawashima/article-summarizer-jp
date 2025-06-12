@@ -161,29 +161,37 @@ Example: #人工知能 #機械学習 #Python #データサイエンス`;
   return tagMatches.map(tag => tag.substring(1)); // Remove # prefix
 }
 
-async function validateImageUrl(imageUrl: string | undefined, title: string, anthropic: Anthropic): Promise<string | undefined> {
-  if (!imageUrl) return undefined;
+async function extractThumbnailFromHtml(htmlContent: string, title: string, anthropic: Anthropic): Promise<string | undefined> {
+  const systemPrompt = `You are an expert at analyzing HTML content to find suitable thumbnail images for articles. You should identify the best image that represents the article content.`;
   
-  const systemPrompt = `You are an expert at evaluating whether image URLs are suitable as article thumbnails. You should identify high-quality, relevant images while filtering out logos, icons, advertisements, and low-quality images.`;
+  const maxHtmlLength = 20000;
+  const truncatedHtml = htmlContent.length > maxHtmlLength 
+    ? htmlContent.substring(0, maxHtmlLength) + '...'
+    : htmlContent;
   
-  const userPrompt = `Evaluate if this image URL is suitable as a thumbnail for an article.
+  const userPrompt = `Analyze this HTML content and find the best thumbnail image for the article.
 
 Article Title: "${title}"
-Image URL: ${imageUrl}
 
-Consider these factors:
-- Is it likely a relevant, high-quality article image?
-- Is it NOT a logo, icon, advertisement, or placeholder?
-- Does the URL suggest it's a proper content image?
-- Is the image likely to be useful as a thumbnail?
+HTML Content:
+${truncatedHtml}
 
-Respond with only "YES" if suitable, or "NO" if not suitable.
-Do not provide explanations.`;
+Instructions:
+1. Look for images in the HTML (img tags, meta og:image, twitter:image, etc.)
+2. Choose the most suitable image as a thumbnail:
+   - Prefer content-related images over logos/icons
+   - Choose the first significant image in the article if no meta image
+   - Avoid small icons, avatars, logos, advertisements
+   - Prefer larger, high-quality images
+3. Return ONLY the image URL, nothing else
+4. If no suitable image is found, return "NONE"
+
+Extract the best thumbnail image URL:`;
   
   try {
     const response = await anthropic.messages.create({
       model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 10,
+      max_tokens: 200,
       temperature: 0.1,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }]
@@ -193,48 +201,50 @@ Do not provide explanations.`;
       .filter(block => block.type === 'text')
       .map(block => block.text)
       .join('')
-      .trim()
-      .toUpperCase();
+      .trim();
     
-    return result === 'YES' ? imageUrl : undefined;
+    if (result === 'NONE' || !result.startsWith('http')) {
+      return undefined;
+    }
+    
+    return result;
   } catch {
-    // If validation fails, return the original URL
-    return imageUrl;
+    return undefined;
   }
 }
 
-async function generateTranslation(title: string, content: string, anthropic: Anthropic): Promise<string> {
-  // Use larger limit for translation and higher-tier model
-  const maxContentLength = 150000;
-  const truncatedContent = content.length > maxContentLength 
-    ? content.substring(0, maxContentLength) + '...\n[Content truncated due to length]'
-    : content;
+async function generateTranslation(title: string, htmlContent: string, anthropic: Anthropic): Promise<string> {
 
   const systemPrompt = `You are an expert Japanese translator with deep understanding of both English and Japanese languages. Your specialty is producing complete, faithful translations that preserve every detail of the original content while maintaining proper formatting. You MUST translate the entire content without any omissions or summarization. Always write in polite Japanese (ですます調).`;
 
-  const userPrompt = `Translate the following article completely into Japanese.
+  const maxHtmlLength = 50000;
+  const truncatedHtml = htmlContent.length > maxHtmlLength 
+    ? htmlContent.substring(0, maxHtmlLength) + '...'
+    : htmlContent;
+  
+  const userPrompt = `Translate the following article HTML into Japanese with proper markdown formatting.
 
 **REQUIREMENTS:**
 - Translate EVERY sentence and paragraph - do not omit any content
-- Maintain the original structure and organization  
-- Preserve all details, examples, quotes, and technical information
+- Convert HTML to markdown while preserving structure
 - Use polite Japanese (ですます調) throughout
-- **FORMATTING REQUIREMENTS:**
-  - Preserve code blocks using \`\`\` markdown syntax
-  - Keep inline code with \` backticks
-  - Maintain bullet points and numbered lists
-  - Preserve headers with # markdown syntax
-  - Keep emphasis with **bold** and *italic* formatting
-  - Maintain line breaks and paragraph structure
-- Do not summarize - this must be a complete translation
+- **HTML TO MARKDOWN CONVERSION:**
+  - Convert <pre><code> or <code> blocks to \`\`\` markdown code blocks
+  - Convert <strong> or <b> to **bold** markdown
+  - Convert <em> or <i> to *italic* markdown
+  - Convert <h1>, <h2>, etc. to # markdown headers
+  - Convert <ul>/<li> to markdown bullet points
+  - Convert <ol>/<li> to numbered lists
+  - Preserve line breaks and paragraph structure
+  - Remove HTML tags but keep the formatting as markdown
 - Do not include any explanations, introductions, or meta-commentary
-- Output ONLY the translated text, nothing else
+- Output ONLY the translated markdown text, nothing else
 - Start directly with the translated content
 
 Article Title: ${title}
 
-Article Content:
-${truncatedContent}`;
+HTML Content:
+${truncatedHtml}`
 
   // Use Sonnet as default for better speed
   const model = 'claude-3-5-sonnet-20241022';
@@ -257,7 +267,7 @@ ${truncatedContent}`;
   return cleanTranslationOutput(rawTranslation);
 }
 
-export async function summarizeContent(title: string, content: string, imageUrl?: string): Promise<SummaryResult> {
+export async function summarizeContent(title: string, content: string, htmlContent: string): Promise<SummaryResult> {
   const apiKey = config.getApiKey();
   const anthropic = new Anthropic({ apiKey });
 
@@ -271,14 +281,14 @@ export async function summarizeContent(title: string, content: string, imageUrl?
     // Fallback if translation fails or returns empty
     const finalTitle = translatedTitle.trim() || title;
     
-    console.log('    🔄 画像URLを検証中...');
-    const validImageUrl = await validateImageUrl(imageUrl, title, anthropic);
+    console.log('    🔄 サムネイル画像を抽出中...');
+    const validImageUrl = await extractThumbnailFromHtml(htmlContent, title, anthropic);
     
     console.log('    🔄 タグを生成中...');
     const tags = await generateTags(title, content, anthropic);
     
     console.log('    🔄 全文翻訳を生成中...');
-    const translation = await generateTranslation(title, content, anthropic);
+    const translation = await generateTranslation(title, htmlContent, anthropic);
 
     return { summary, translation, translatedTitle: finalTitle, tags, validImageUrl };
   } catch (error) {
