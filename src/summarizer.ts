@@ -233,10 +233,18 @@ async function generateTranslation(title: string, htmlContent: string, anthropic
   - Convert <strong> or <b> to **bold** markdown
   - Convert <em> or <i> to *italic* markdown
   - Convert <h1>, <h2>, etc. to # markdown headers
-  - Convert <ul>/<li> to markdown bullet points
-  - Convert <ol>/<li> to numbered lists
+  - **LIST CONVERSION - VERY IMPORTANT:**
+    - Convert <ul><li>item</li><li>item</li></ul> to:
+      - item
+      - item
+    - Convert <ol><li>item</li><li>item</li></ol> to:
+      1. item
+      2. item
+    - Each list item should be on its own line with proper markdown bullet/number
+    - Maintain list hierarchy for nested lists
   - Preserve line breaks and paragraph structure
   - Remove HTML tags but keep the formatting as markdown
+- **SPECIAL ATTENTION TO LISTS:** Look for any list structures in the HTML and ensure they are properly converted to markdown format
 - Do not include any explanations, introductions, or meta-commentary
 - Output ONLY the translated markdown text, nothing else
 - Start directly with the translated content
