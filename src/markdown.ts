@@ -12,12 +12,12 @@ export async function saveToMarkdown(
   const now = new Date();
   const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD format
   
-  // Clean translated title for filename (remove special characters)
+  // Clean translated title for filename (replace invalid characters with underscore)
   const cleanTitle = translatedTitle
-    .replace(/[<>:"/\\|?*]/g, '') // Remove invalid filename characters
-    .replace(/\s+/g, ' ')         // Normalize whitespace
+    .replace(/[<>:"/\\|?*]/g, '_') // Replace invalid filename characters with underscore
+    .replace(/\s+/g, ' ')          // Normalize whitespace
     .trim()
-    .slice(0, 100);               // Limit length
+    .slice(0, 100);                // Limit length
   
   // Create filename using translated title
   const filename = `📰 ${cleanTitle}.md`;
