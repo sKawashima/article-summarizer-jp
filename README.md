@@ -19,6 +19,14 @@ A CLI tool that fetches articles from URLs and summarizes them in Japanese using
 
 ## Installation
 
+### From npm (Recommended)
+
+```bash
+npm install -g article-summarizer-jp
+```
+
+### From source
+
 ```bash
 # Clone the repository
 git clone https://github.com/sKawashima/article-summarizer-jp.git
@@ -36,7 +44,9 @@ npm run build
 Before first use, configure your Anthropic API key:
 
 ```bash
-npm run start -- --config
+article-summarizer-jp --config
+# or use the short alias
+asumjp --config
 ```
 
 You'll be prompted to enter your API key, which will be securely stored.
@@ -46,16 +56,20 @@ You'll be prompted to enter your API key, which will be securely stored.
 ### Basic usage with URL argument
 
 ```bash
-npm run start https://example.com/article
+article-summarizer-jp https://example.com/article
+# or use the short alias
+asumjp https://example.com/article
 ```
 
 ### Interactive mode (prompts for URL)
 
 ```bash
-npm run start
+article-summarizer-jp
+# or
+asumjp
 ```
 
-### Development mode
+### Development mode (if installed from source)
 
 ```bash
 npm run dev https://example.com/article
@@ -102,7 +116,7 @@ npm run lint
 ## Troubleshooting
 
 ### "API key not configured" error
-Run `npm run start -- --config` to set up your API key.
+Run `article-summarizer-jp --config` (or `asumjp --config`) to set up your API key.
 
 ### Content extraction fails
 The tool automatically falls back to a headless browser (Puppeteer) if the initial fetch fails. This handles JavaScript-rendered content and pages with anti-bot measures.
