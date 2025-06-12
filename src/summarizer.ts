@@ -217,7 +217,6 @@ export async function summarizeContent(title: string, content: string): Promise<
     
     console.log('    🔄 タイトルを翻訳中...');
     const translatedTitle = await generateTitleTranslation(title, anthropic);
-    console.log(`    📋 翻訳されたタイトル: ${translatedTitle}`);
     
     // Fallback if translation fails or returns empty
     const finalTitle = translatedTitle.trim() || title;
