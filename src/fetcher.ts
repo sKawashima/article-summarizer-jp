@@ -43,11 +43,26 @@ export async function fetchContent(url: string): Promise<FetchResult> {
   // Fallback to headless browser
   const browser = await launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-logging',
+      '--log-level=3',
+      '--silent',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding'
+    ],
   });
 
   try {
     const page = await browser.newPage();
+    
+    // Suppress console logs from the browser page
+    page.on('console', () => {});
+    page.on('pageerror', () => {});
+    page.on('requestfailed', () => {});
     
     // Set user agent to avoid bot detection
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');

@@ -41,33 +41,41 @@ async function main() {
       await config.configure();
     }
 
-    console.log(chalk.blue(`📄 ${urls.length}件の記事を処理開始します...\n`));
+    console.log(chalk.blue(`📄 ${urls.length}件の記事を処理開始します（最大5件並行処理）...\n`));
     
     const results: { success: boolean; filename?: string; url: string; error?: string }[] = [];
+    const maxConcurrent = 5;
     
-    for (let i = 0; i < urls.length; i++) {
-      const url = urls[i];
-      const current = i + 1;
-      const total = urls.length;
+    // Process URLs in batches with concurrent execution
+    for (let i = 0; i < urls.length; i += maxConcurrent) {
+      const batch = urls.slice(i, i + maxConcurrent);
+      const batchPromises = batch.map(async (url, index) => {
+        const globalIndex = i + index + 1;
+        const total = urls.length;
+        
+        try {
+          console.log(chalk.blue(`[${globalIndex}/${total}] ${url}`));
+          console.log(chalk.gray('  📄 コンテンツを取得中...'));
+          const { title, content, extractedUrl, htmlContent } = await fetchContent(url);
+          
+          console.log(chalk.gray('  🤖 記事を要約・翻訳中...'));
+          const { summary, details, translatedTitle, tags, validImageUrl } = await summarizeContent(title, content, htmlContent, extractedUrl);
+          
+          console.log(chalk.gray('  💾 マークダウンファイルに保存中...'));
+          const filename = await saveToMarkdown(translatedTitle, extractedUrl, summary, details, tags, validImageUrl);
+          
+          console.log(chalk.green(`  ✅ 完了: ${filename}\n`));
+          return { success: true, filename, url };
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.log(chalk.red(`  ❌ エラー: ${errorMessage}\n`));
+          return { success: false, url, error: errorMessage };
+        }
+      });
       
-      try {
-        console.log(chalk.blue(`[${current}/${total}] ${url}`));
-        console.log(chalk.gray('  📄 コンテンツを取得中...'));
-        const { title, content, extractedUrl, htmlContent } = await fetchContent(url);
-        
-        console.log(chalk.gray('  🤖 記事を要約・翻訳中...'));
-        const { summary, details, translatedTitle, tags, validImageUrl } = await summarizeContent(title, content, htmlContent, extractedUrl);
-        
-        console.log(chalk.gray('  💾 マークダウンファイルに保存中...'));
-        const filename = await saveToMarkdown(translatedTitle, extractedUrl, summary, details, tags, validImageUrl);
-        
-        console.log(chalk.green(`  ✅ 完了: ${filename}\n`));
-        results.push({ success: true, filename, url });
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        console.log(chalk.red(`  ❌ エラー: ${errorMessage}\n`));
-        results.push({ success: false, url, error: errorMessage });
-      }
+      // Wait for all promises in the current batch to complete
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
     }
     
     // Show summary
