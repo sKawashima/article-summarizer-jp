@@ -34,10 +34,12 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.54.0",
+    "@extractus/article-extractor": "^8.0.19",
     "chalk": "^5.4.1",
     "commander": "^14.0.0",
     "configstore": "^7.0.0",
     "inquirer": "^12.6.3",
+    "jsdom": "^26.1.0",
     "node-fetch": "^3.3.2",
     "puppeteer": "^24.10.0"
   }

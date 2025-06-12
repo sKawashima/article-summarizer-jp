@@ -1,0 +1,79 @@
+import fetch from 'node-fetch';
+import { launch } from 'puppeteer';
+import { extractTextContent } from './extractor.js';
+
+interface FetchResult {
+  title: string;
+  content: string;
+  extractedUrl: string;
+}
+
+export async function fetchContent(url: string): Promise<FetchResult> {
+  // Validate and normalize URL
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    throw new Error('Invalid URL provided');
+  }
+
+  // Try regular fetch first
+  try {
+    const response = await fetch(parsedUrl.toString(), {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; ArticleSummarizer/1.0)',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const html = await response.text();
+    const { title, content } = extractTextContent(html);
+
+    if (content.length > 100) {
+      return { title, content, extractedUrl: parsedUrl.toString() };
+    }
+  } catch (error) {
+    console.log('Regular fetch failed, trying headless browser...');
+  }
+
+  // Fallback to headless browser
+  const browser = await launch({
+    headless: 'new',
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
+
+  try {
+    const page = await browser.newPage();
+    
+    // Set user agent to avoid bot detection
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
+    
+    // Navigate to the URL with increased timeout
+    await page.goto(parsedUrl.toString(), {
+      waitUntil: 'networkidle2',
+      timeout: 30000,
+    });
+
+    // Wait for common content selectors
+    await page.waitForSelector('article, main, .content, #content, body', {
+      timeout: 5000,
+    }).catch(() => {
+      // Continue even if selector not found
+    });
+
+    // Get page content
+    const html = await page.content();
+    const { title, content } = extractTextContent(html);
+
+    if (content.length < 100) {
+      throw new Error('Could not extract meaningful content from the page');
+    }
+
+    return { title, content, extractedUrl: parsedUrl.toString() };
+  } finally {
+    await browser.close();
+  }
+}
