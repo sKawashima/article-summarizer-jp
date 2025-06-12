@@ -16,17 +16,20 @@ export async function summarizeContent(title: string, content: string): Promise<
     ? content.substring(0, maxContentLength) + '...\n[Content truncated due to length]'
     : content;
 
-  const systemPrompt = `You are an expert Japanese language summarization specialist with deep understanding of both English and Japanese languages. You excel at creating concise, informative summaries and accurate translations. Always write in polite Japanese (ですます調) for both summaries and translations.`;
+  const systemPrompt = `You are an expert Japanese language summarization and translation specialist with deep understanding of both English and Japanese languages. You excel at creating concise, informative summaries and producing complete, faithful translations. Always write in polite Japanese (ですます調) for both summaries and translations. For translations, maintain fidelity to the original content without omitting any information.`;
 
   const userPrompt = `Please analyze the following article and provide:
 
 1. A concise 3-line summary in Japanese (3行まとめ) that captures the most important points
-2. A complete Japanese translation of the full article content
+2. A complete and faithful Japanese translation of the full article content
 
-**Important formatting requirements:**
-- Use polite Japanese (ですます調) throughout
+**Important requirements:**
+- For the summary (3行まとめ): Summarize the key points concisely
+- For the translation (全文和訳): Provide a complete, faithful translation without summarizing or omitting content
+- Use polite Japanese (ですます調) throughout both sections
 - Maintain natural, readable Japanese expression
 - Keep the formal tone appropriate for written Japanese
+- Preserve the original structure and all details in the translation
 
 Article Title: ${title}
 
@@ -40,7 +43,7 @@ Please format your response as follows:
 3. [Third key point in polite Japanese]
 
 ## 全文和訳
-[Full Japanese translation in polite form (ですます調)]`;
+[Complete and faithful Japanese translation of the entire article in polite form (ですます調) - do not summarize, translate everything]`;
 
   try {
     const response = await anthropic.messages.create({
