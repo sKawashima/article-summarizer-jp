@@ -16,12 +16,17 @@ export async function summarizeContent(title: string, content: string): Promise<
     ? content.substring(0, maxContentLength) + '...\n[Content truncated due to length]'
     : content;
 
-  const systemPrompt = `You are an expert Japanese language summarization specialist with deep understanding of both English and Japanese languages. You excel at creating concise, informative summaries and accurate translations.`;
+  const systemPrompt = `You are an expert Japanese language summarization specialist with deep understanding of both English and Japanese languages. You excel at creating concise, informative summaries and accurate translations. Always write in polite Japanese (ですます調) for both summaries and translations.`;
 
   const userPrompt = `Please analyze the following article and provide:
 
 1. A concise 3-line summary in Japanese (3行まとめ) that captures the most important points
 2. A complete Japanese translation of the full article content
+
+**Important formatting requirements:**
+- Use polite Japanese (ですます調) throughout
+- Maintain natural, readable Japanese expression
+- Keep the formal tone appropriate for written Japanese
 
 Article Title: ${title}
 
@@ -30,12 +35,12 @@ ${truncatedContent}
 
 Please format your response as follows:
 ## 3行まとめ
-1. [First key point]
-2. [Second key point]
-3. [Third key point]
+1. [First key point in polite Japanese]
+2. [Second key point in polite Japanese] 
+3. [Third key point in polite Japanese]
 
 ## 全文和訳
-[Full Japanese translation of the article]`;
+[Full Japanese translation in polite form (ですます調)]`;
 
   try {
     const response = await anthropic.messages.create({
