@@ -37,6 +37,8 @@ ${summary}
 
 ## 全文和訳
 ${translation}
+
+#web_scrap
 `;
   
   // Write to file
