@@ -10,29 +10,75 @@ interface SummaryResult {
   validImageUrl?: string;
 }
 
-function cleanTranslationOutput(rawTranslation: string): string {
+function cleanSummaryOutput(rawSummary: string): string {
+  // Remove common AI explanation patterns from summary
+  const cleaningPatterns = [
+    // Remove introductions
+    /^(Here's a 3-line summary in polite Japanese|以下が3行のまとめです|3行まとめは以下の通りです).*?[：:]?\s*\n+/i,
+    /^(以下に|こちらが).*?3行.*?(まとめ|要約).*?[：:]?\s*\n+/i,
+    
+    // Remove conclusions
+    /\n+.*?(以上が|これが).*?3行.*?(まとめ|要約).*?$/i,
+    /\n+.*?となります。?$/i,
+  ];
+  
+  let cleaned = rawSummary;
+  
+  // Apply cleaning patterns
+  for (const pattern of cleaningPatterns) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+  
+  // Remove excessive whitespace
+  cleaned = cleaned
+    .replace(/\n{2,}/g, '\n')    // Multiple line breaks to single
+    .replace(/^\s+/, '')         // Leading whitespace
+    .replace(/\s+$/, '');        // Trailing whitespace
+  
+  return cleaned;
+}
+
+function cleanDetailsOutput(rawDetails: string): string {
+  // Remove HTML tags except for media-related ones
+  let cleaned = rawDetails;
+  
+  // Preserve image and video tags by temporarily replacing them
+  const mediaPlaceholders: { [key: string]: string } = {};
+  let placeholderIndex = 0;
+  
+  // Preserve markdown images
+  cleaned = cleaned.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match) => {
+    const placeholder = `__MEDIA_PLACEHOLDER_${placeholderIndex++}__`;
+    mediaPlaceholders[placeholder] = match;
+    return placeholder;
+  });
+  
+  // Preserve markdown links for videos
+  cleaned = cleaned.replace(/\[Video[^]]*\]\([^)]+\)/g, (match) => {
+    const placeholder = `__MEDIA_PLACEHOLDER_${placeholderIndex++}__`;
+    mediaPlaceholders[placeholder] = match;
+    return placeholder;
+  });
+  
+  // Remove all HTML tags
+  cleaned = cleaned.replace(/<[^>]+>/g, '');
+  
+  // Restore media placeholders
+  Object.keys(mediaPlaceholders).forEach(placeholder => {
+    cleaned = cleaned.replace(placeholder, mediaPlaceholders[placeholder]);
+  });
+  
   // Remove common AI explanation patterns
   const cleaningPatterns = [
     // Remove explanatory introductions
-    /^(はい、)?以下に?記事の?(全文|内容)を?(忠実に?|完全に?)?日本語に?翻?訳(いたします|します).*?\n\n?/i,
-    /^記事タイトル[：:]\s*[\s\S]*?\n記事本文[：:]\s*/i,
-    /^Article Title[：:]?\s*[\s\S]*?\n\n?/i,
-    /^原文の?(構成|内容|詳細).*?(維持|保持).*?\n\n?/i,
-    /^(内容を省略することなく|すべて維持し).*?\n\n?/i,
-    /^(丁寧語|ですます調).*?訳出.*?\n\n?/i,
-    /^(原文と同じ長さの|完全な翻訳).*?\n\n?/i,
+    /^(はい、)?以下に?.*?(詳細|内容|説明)を?(日本語で)?.*?(提供|記載|説明)(いたします|します).*?\n\n?/i,
+    /^記事の詳細.*?[：:]?\s*\n+/i,
+    /^Details of the article.*?[：:]?\s*\n+/i,
     
     // Remove meta-commentary
     /\n\n?注[：:].*$/i,
-    /\n\n?(以上が|これで).*?翻訳.*?(です|となります)\.?$/i,
-    /\n\n?翻訳は以上.*?$/i,
-    
-    // Remove repeated title patterns
-    /^記事タイトル[：:]\s*/i,
-    /^Article Title[：:]?\s*/i,
+    /\n\n?(以上が|これで).*?(詳細|説明).*?(です|となります)\.?$/i,
   ];
-  
-  let cleaned = rawTranslation;
   
   // Apply cleaning patterns
   for (const pattern of cleaningPatterns) {
@@ -79,11 +125,13 @@ Please format your response as three consecutive lines:
     messages: [{ role: 'user', content: userPrompt }]
   });
 
-  return response.content
+  const rawSummary = response.content
     .filter(block => block.type === 'text')
     .map(block => block.text)
     .join('\n')
     .trim();
+    
+  return cleanSummaryOutput(rawSummary);
 }
 
 async function generateTitleTranslation(title: string, anthropic: Anthropic): Promise<string> {
@@ -197,7 +245,7 @@ ${htmlContent}`
     .join('\n')
     .trim();
   
-  return cleanTranslationOutput(rawDetails);
+  return cleanDetailsOutput(rawDetails);
 }
 
 export async function summarizeContent(title: string, content: string, htmlContent: string, baseUrl: string): Promise<SummaryResult> {
