@@ -134,18 +134,30 @@ Please format your response as three consecutive lines:
   return cleanSummaryOutput(rawSummary);
 }
 
+function isJapanese(text: string): boolean {
+  // Check if text contains Japanese characters (hiragana, katakana, kanji)
+  const japaneseRegex = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/;
+  return japaneseRegex.test(text);
+}
+
 async function generateTitleTranslation(title: string, anthropic: Anthropic): Promise<string> {
-  const systemPrompt = `You are an expert Japanese translator. You must always translate English text into Japanese. Never respond in English.`;
+  // If title is already in Japanese, return as-is
+  if (isJapanese(title)) {
+    return title;
+  }
   
-  const userPrompt = `以下の英語記事タイトルを自然な日本語に翻訳してください：
+  const systemPrompt = `You are an expert Japanese translator. You can translate from any language into Japanese. Always respond in Japanese only.`;
+  
+  const userPrompt = `Translate the following article title into natural Japanese:
 
 "${title}"
 
-要件：
-- 翻訳されたタイトルのみを出力してください（説明は不要）
-- 自然で読みやすい日本語にしてください
-- 元の意味とトーンを保持してください
-- 必ず日本語で回答してください`;
+Requirements:
+- Output only the translated title (no explanations needed)
+- Make it natural and readable Japanese
+- Preserve the original meaning and tone
+- Always respond in Japanese
+- Translate from any language to Japanese`;
   
   const response = await anthropic.messages.create({
     model: 'claude-3-5-sonnet-20241022',
@@ -207,25 +219,26 @@ Example: #人工知能 #機械学習 #Python #データサイエンス`;
 
 async function generateDetails(title: string, htmlContent: string, anthropic: Anthropic): Promise<string> {
 
-  const systemPrompt = `You are an expert Japanese content analyst and translator. Your specialty is creating detailed, comprehensive descriptions of articles in Japanese while preserving key information and media elements.`;
+  const systemPrompt = `You are an expert Japanese content analyst and translator. You can analyze and translate content from any language into Japanese. Your specialty is creating detailed, comprehensive descriptions of articles in Japanese while preserving key information and media elements.`;
 
-  const userPrompt = `Create a detailed Japanese description of the following article content.
+  const userPrompt = `以下の記事コンテンツの詳細な日本語の説明を作成してください。
 
-**REQUIREMENTS:**
-- Provide detailed coverage of the main content (not a full translation, but comprehensive details)
-- Use polite Japanese (ですます調) throughout
-- Output in proper markdown format
-- Include any images or videos found in the content as markdown elements:
-  - For images: ![description](url) or ![alt text](url)
-  - For videos: [Video: description](url) or embed code if available
-- Preserve important technical details, quotes, and examples
-- Structure with appropriate headers and formatting
-- Do not include explanations, introductions, or meta-commentary
-- Start directly with the detailed content
+**要件:**
+- メインコンテンツの詳細なカバレッジを提供（完全な翻訳ではなく、包括的な詳細）
+- 丁寧な日本語（ですます調）で統一
+- 適切なmardown形式で出力
+- コンテンツ内の画像や動画をmarkdown要素として含める:
+  - 画像: ![description](url) または ![alt text](url)
+  - 動画: [Video: description](url) または埋め込みコードが利用可能な場合
+- 重要な技術的詳細、引用、例を保持
+- 適切なヘッダーとフォーマットで構造化
+- 説明、前置き、メタコメンタリーは含めない
+- 詳細コンテンツから直接始める
+- どの言語のコンテンツでも日本語で説明してください
 
-Article Title: ${title}
+記事タイトル: ${title}
 
-HTML Content:
+HTMLコンテンツ:
 ${htmlContent}`
 
   // Use Sonnet as default for better speed
@@ -248,27 +261,37 @@ ${htmlContent}`
   return cleanDetailsOutput(rawDetails);
 }
 
-export async function summarizeContent(title: string, content: string, htmlContent: string, baseUrl: string): Promise<SummaryResult> {
+export async function summarizeContent(title: string, content: string, htmlContent: string, baseUrl: string, isSilent = false): Promise<SummaryResult> {
   const apiKey = config.getApiKey();
   const anthropic = new Anthropic({ apiKey });
 
   try {
-    console.log('    🔄 要約を生成中...');
+    if (!isSilent) {
+      console.log('    🔄 要約を生成中...');
+    }
     const summary = await generateSummary(title, content, anthropic);
     
-    console.log('    🔄 タイトルを翻訳中...');
+    if (!isSilent) {
+      console.log('    🔄 タイトルを翻訳中...');
+    }
     const translatedTitle = await generateTitleTranslation(title, anthropic);
     
     // Fallback if translation fails or returns empty
     const finalTitle = translatedTitle.trim() || title;
     
-    console.log('    🔄 サムネイル画像を抽出中...');
+    if (!isSilent) {
+      console.log('    🔄 サムネイル画像を抽出中...');
+    }
     const validImageUrl = extractThumbnailFromHtml(htmlContent, baseUrl);
     
-    console.log('    🔄 タグを生成中...');
+    if (!isSilent) {
+      console.log('    🔄 タグを生成中...');
+    }
     const tags = await generateTags(title, content, anthropic);
     
-    console.log('    🔄 詳細を生成中...');
+    if (!isSilent) {
+      console.log('    🔄 詳細を生成中...');
+    }
     const details = await generateDetails(title, htmlContent, anthropic);
 
     return { summary, details, translatedTitle: finalTitle, tags, validImageUrl };

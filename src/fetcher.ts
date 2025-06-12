@@ -9,7 +9,7 @@ interface FetchResult {
   htmlContent: string;
 }
 
-export async function fetchContent(url: string): Promise<FetchResult> {
+export async function fetchContent(url: string, isSilent = false): Promise<FetchResult> {
   // Validate and normalize URL
   let parsedUrl: URL;
   try {
@@ -37,7 +37,9 @@ export async function fetchContent(url: string): Promise<FetchResult> {
       return { title, content, extractedUrl: parsedUrl.toString(), htmlContent };
     }
   } catch (error) {
-    console.log('Regular fetch failed, trying headless browser...');
+    if (!isSilent) {
+      console.log('Regular fetch failed, trying headless browser...');
+    }
   }
 
   // Fallback to headless browser
