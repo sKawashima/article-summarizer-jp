@@ -217,12 +217,6 @@ async function generateTranslation(title: string, htmlContent: string, anthropic
 
   const systemPrompt = `You are an expert Japanese translator with deep understanding of both English and Japanese languages. Your specialty is producing complete, faithful translations that preserve every detail of the original content while maintaining proper formatting. You MUST translate the entire content without any omissions or summarization. Always write in polite Japanese (ですます調).`;
 
-  // Use much larger limit to preserve full content
-  const maxHtmlLength = 120000;
-  const truncatedHtml = htmlContent.length > maxHtmlLength 
-    ? htmlContent.substring(0, maxHtmlLength) + '...'
-    : htmlContent;
-  
   const userPrompt = `Translate the following article HTML into Japanese.
 
 **REQUIREMENTS:**
@@ -236,7 +230,7 @@ async function generateTranslation(title: string, htmlContent: string, anthropic
 Article Title: ${title}
 
 HTML Content:
-${truncatedHtml}`
+${htmlContent}`
 
   // Use Sonnet as default for better speed
   const model = 'claude-3-5-sonnet-20241022';
