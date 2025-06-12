@@ -6,6 +6,7 @@ interface SummaryResult {
   translation: string;
   translatedTitle: string;
   tags: string[];
+  validImageUrl?: string;
 }
 
 function cleanTranslationOutput(rawTranslation: string): string {
@@ -160,6 +161,48 @@ Example: #人工知能 #機械学習 #Python #データサイエンス`;
   return tagMatches.map(tag => tag.substring(1)); // Remove # prefix
 }
 
+async function validateImageUrl(imageUrl: string | undefined, title: string, anthropic: Anthropic): Promise<string | undefined> {
+  if (!imageUrl) return undefined;
+  
+  const systemPrompt = `You are an expert at evaluating whether image URLs are suitable as article thumbnails. You should identify high-quality, relevant images while filtering out logos, icons, advertisements, and low-quality images.`;
+  
+  const userPrompt = `Evaluate if this image URL is suitable as a thumbnail for an article.
+
+Article Title: "${title}"
+Image URL: ${imageUrl}
+
+Consider these factors:
+- Is it likely a relevant, high-quality article image?
+- Is it NOT a logo, icon, advertisement, or placeholder?
+- Does the URL suggest it's a proper content image?
+- Is the image likely to be useful as a thumbnail?
+
+Respond with only "YES" if suitable, or "NO" if not suitable.
+Do not provide explanations.`;
+  
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 10,
+      temperature: 0.1,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }]
+    });
+    
+    const result = response.content
+      .filter(block => block.type === 'text')
+      .map(block => block.text)
+      .join('')
+      .trim()
+      .toUpperCase();
+    
+    return result === 'YES' ? imageUrl : undefined;
+  } catch {
+    // If validation fails, return the original URL
+    return imageUrl;
+  }
+}
+
 async function generateTranslation(title: string, content: string, anthropic: Anthropic): Promise<string> {
   // Use larger limit for translation and higher-tier model
   const maxContentLength = 150000;
@@ -167,7 +210,7 @@ async function generateTranslation(title: string, content: string, anthropic: An
     ? content.substring(0, maxContentLength) + '...\n[Content truncated due to length]'
     : content;
 
-  const systemPrompt = `You are an expert Japanese translator with deep understanding of both English and Japanese languages. Your specialty is producing complete, faithful translations that preserve every detail of the original content. You MUST translate the entire content without any omissions or summarization. Always write in polite Japanese (ですます調).`;
+  const systemPrompt = `You are an expert Japanese translator with deep understanding of both English and Japanese languages. Your specialty is producing complete, faithful translations that preserve every detail of the original content while maintaining proper formatting. You MUST translate the entire content without any omissions or summarization. Always write in polite Japanese (ですます調).`;
 
   const userPrompt = `Translate the following article completely into Japanese.
 
@@ -176,6 +219,13 @@ async function generateTranslation(title: string, content: string, anthropic: An
 - Maintain the original structure and organization  
 - Preserve all details, examples, quotes, and technical information
 - Use polite Japanese (ですます調) throughout
+- **FORMATTING REQUIREMENTS:**
+  - Preserve code blocks using \`\`\` markdown syntax
+  - Keep inline code with \` backticks
+  - Maintain bullet points and numbered lists
+  - Preserve headers with # markdown syntax
+  - Keep emphasis with **bold** and *italic* formatting
+  - Maintain line breaks and paragraph structure
 - Do not summarize - this must be a complete translation
 - Do not include any explanations, introductions, or meta-commentary
 - Output ONLY the translated text, nothing else
@@ -207,7 +257,7 @@ ${truncatedContent}`;
   return cleanTranslationOutput(rawTranslation);
 }
 
-export async function summarizeContent(title: string, content: string): Promise<SummaryResult> {
+export async function summarizeContent(title: string, content: string, imageUrl?: string): Promise<SummaryResult> {
   const apiKey = config.getApiKey();
   const anthropic = new Anthropic({ apiKey });
 
@@ -221,13 +271,16 @@ export async function summarizeContent(title: string, content: string): Promise<
     // Fallback if translation fails or returns empty
     const finalTitle = translatedTitle.trim() || title;
     
+    console.log('    🔄 画像URLを検証中...');
+    const validImageUrl = await validateImageUrl(imageUrl, title, anthropic);
+    
     console.log('    🔄 タグを生成中...');
     const tags = await generateTags(title, content, anthropic);
     
     console.log('    🔄 全文翻訳を生成中...');
     const translation = await generateTranslation(title, content, anthropic);
 
-    return { summary, translation, translatedTitle: finalTitle, tags };
+    return { summary, translation, translatedTitle: finalTitle, tags, validImageUrl };
   } catch (error) {
     if (error instanceof Anthropic.APIError) {
       throw new Error(`Claude API error: ${error.message}`);
