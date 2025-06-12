@@ -4,8 +4,8 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "article-summarizer-jp": "./dist/index.js",
-    "asumjp": "./dist/index.js"
+    "article-summarizer-jp": "dist/index.js",
+    "asumjp": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -38,8 +38,7 @@
   },
   "files": [
     "dist",
-    "README.md",
-    "CLAUDE.md"
+    "README.md"
   ],
   "bugs": {
     "url": "https://github.com/sKawashima/article-summarizer-jp/issues"
