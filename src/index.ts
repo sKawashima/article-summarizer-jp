@@ -2,6 +2,9 @@
 
 import { program } from 'commander';
 import chalk from 'chalk';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { config } from './config.js';
 import { fetchContent } from './fetcher.js';
 import { summarizeContent } from './summarizer.js';
@@ -9,11 +12,15 @@ import { saveToMarkdown } from './markdown.js';
 import { getUrlFromUser } from './input.js';
 import { startWatchMode } from './watch.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
+
 async function main() {
   program
     .name('article-summarizer')
     .description('日本語記事要約CLIツール')
-    .version('1.1.0')
+    .version(packageJson.version)
     .argument('[urls...]', 'summarize articles from the provided URLs (supports multiple URLs)')
     .option('--config', 'configure API key')
     .option('-w, --watch', 'start in watch mode for continuous URL input')
