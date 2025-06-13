@@ -63,10 +63,10 @@ async function main() {
         try {
           console.log(chalk.blue(`[${globalIndex}/${total}] ${url}`));
           console.log(chalk.gray('  📄 コンテンツを取得中...'));
-          const { title, content, extractedUrl, htmlContent } = await fetchContent(url);
+          const { title, extractedUrl, htmlContent } = await fetchContent(url);
           
           console.log(chalk.gray('  🤖 記事を要約・翻訳中...'));
-          const { summary, details, translatedTitle, tags, validImageUrl } = await summarizeContent(title, content, htmlContent, extractedUrl);
+          const { summary, details, translatedTitle, tags, validImageUrl } = await summarizeContent(title, htmlContent, extractedUrl);
           
           console.log(chalk.gray('  💾 マークダウンファイルに保存中...'));
           const filename = await saveToMarkdown(translatedTitle, extractedUrl, summary, details, tags, validImageUrl);

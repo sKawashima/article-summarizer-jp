@@ -80,10 +80,10 @@ export async function startWatchMode() {
     try {
       addLog(`📄 処理開始: ${url}`);
       addLog('  📥 コンテンツを取得中...');
-      const { title, content, extractedUrl, htmlContent } = await fetchContent(url, true);
+      const { title, extractedUrl, htmlContent } = await fetchContent(url, true);
       
       addLog('  🤖 要約・翻訳中...');
-      const { summary, details, translatedTitle, tags, validImageUrl } = await summarizeContent(title, content, htmlContent, extractedUrl, true);
+      const { summary, details, translatedTitle, tags, validImageUrl } = await summarizeContent(title, htmlContent, extractedUrl, true);
       
       addLog('  💾 マークダウンファイルに保存中...');
       const filename = await saveToMarkdown(translatedTitle, extractedUrl, summary, details, tags, validImageUrl);
