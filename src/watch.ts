@@ -10,6 +10,84 @@ export async function startWatchMode() {
     await config.configure();
   }
 
+  // Suppress debug output from various libraries
+  process.env.NODE_ENV = 'production';
+  process.env.DEBUG = '';
+  process.env.PUPPETEER_DEBUG = '';
+
+  // Capture and suppress console output during watch mode to prevent layout corruption
+  const originalConsole = {
+    log: console.log,
+    error: console.error,
+    warn: console.warn,
+    info: console.info,
+    debug: console.debug
+  };
+
+  let logBox: any = null;
+
+  // Override console methods to redirect to blessed UI
+  const setupConsoleRedirection = () => {
+    console.log = (...args: any[]) => {
+      if (logBox) {
+        const timestamp = new Date().toLocaleTimeString();
+        const message = args.join(' ');
+        // Filter out CSS-like content and other unwanted output that might corrupt the display
+        const shouldFilter = (
+          message.includes('{') ||
+          message.includes('css') ||
+          message.includes('style') ||
+          message.includes('font-') ||
+          message.includes('color:') ||
+          message.includes('background') ||
+          message.includes('margin') ||
+          message.includes('padding') ||
+          message.includes('.class') ||
+          message.includes('#id') ||
+          message.includes('@media') ||
+          message.includes('px') ||
+          message.includes('rem') ||
+          message.includes('vh') ||
+          message.includes('vw') ||
+          message.includes('%') && message.includes(';') ||
+          message.match(/[\{\}]/g) ||
+          message.length > 500 // Very long messages are likely debug output
+        );
+        
+        if (!shouldFilter) {
+          logBox.log(`[${timestamp}] ${message}`);
+        }
+      }
+    };
+    
+    console.error = (...args: any[]) => {
+      if (logBox) {
+        const timestamp = new Date().toLocaleTimeString();
+        logBox.log(`[${timestamp}] ERROR: ${args.join(' ')}`);
+      }
+    };
+    
+    console.warn = (...args: any[]) => {
+      if (logBox) {
+        const timestamp = new Date().toLocaleTimeString();
+        logBox.log(`[${timestamp}] WARN: ${args.join(' ')}`);
+      }
+    };
+    
+    // Suppress info and debug to reduce noise
+    console.info = () => {};
+    console.debug = () => {};
+  };
+
+  // Restore console when exiting
+  const restoreConsole = () => {
+    console.log = originalConsole.log;
+    console.error = originalConsole.error;
+    console.warn = originalConsole.warn;
+    console.info = originalConsole.info;
+    console.debug = originalConsole.debug;
+  };
+
   // Create a simple blessed screen
   const screen = blessed.screen({
     smartCSR: true,
@@ -27,7 +105,7 @@ export async function startWatchMode() {
   });
 
   // Log area
-  const logBox = blessed.log({
+  logBox = blessed.log({
     parent: container,
     top: 0,
     left: 0,
@@ -135,9 +213,20 @@ export async function startWatchMode() {
     inputBox.focus();
   });
 
+  // Setup console redirection after logBox is created
+  setupConsoleRedirection();
+
   // Handle exit
   screen.key(['C-c'], () => {
+    restoreConsole();
     screen.destroy();
+    process.exit(0);
+  });
+
+  // Also restore console on process exit
+  process.on('exit', restoreConsole);
+  process.on('SIGINT', () => {
+    restoreConsole();
     process.exit(0);
   });
 
