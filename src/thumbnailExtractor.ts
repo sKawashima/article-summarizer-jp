@@ -1,5 +1,25 @@
 import { JSDOM } from 'jsdom';
 
+function suppressConsole<T>(fn: () => T): T {
+  const originalError = console.error;
+  const originalWarn = console.warn;
+  const originalLog = console.log;
+  
+  // Suppress console output during JSDOM operations
+  console.error = () => {};
+  console.warn = () => {};
+  console.log = () => {};
+  
+  try {
+    return fn();
+  } finally {
+    // Restore original console methods
+    console.error = originalError;
+    console.warn = originalWarn;
+    console.log = originalLog;
+  }
+}
+
 interface ImageCandidate {
   url: string;
   width?: number;
@@ -79,7 +99,7 @@ function filterUnwantedImages(images: ImageCandidate[]): ImageCandidate[] {
 }
 
 function extractImagesFromHtml(html: string, baseUrl: string): ImageCandidate[] {
-  const dom = new JSDOM(html);
+  const dom = suppressConsole(() => new JSDOM(html));
   const document = dom.window.document;
   const images: ImageCandidate[] = [];
   
