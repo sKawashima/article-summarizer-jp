@@ -1,12 +1,146 @@
 import fetch from 'node-fetch';
 import { launch } from 'puppeteer';
 import { extractTextContent } from './extractor.js';
+import PDFParser from 'pdf2json';
+import { escape as htmlEscape } from 'html-escaper';
 
 interface FetchResult {
   title: string;
   content: string;
   extractedUrl: string;
   htmlContent: string;
+}
+
+function isPdfUrl(url: string): boolean {
+  try {
+    const parsedUrl = new URL(url);
+    // Check file extension in pathname
+    if (parsedUrl.pathname.toLowerCase().endsWith('.pdf')) {
+      return true;
+    }
+    // Check for common PDF service patterns
+    const hostname = parsedUrl.hostname.toLowerCase();
+    if (hostname === 'arxiv.org' && parsedUrl.pathname.includes('/pdf/')) {
+      return true;
+    }
+    return false;
+  } catch {
+    // More specific fallback: check for .pdf followed by query/fragment/end
+    return url.toLowerCase().match(/\.pdf(\?|#|$)/) !== null;
+  }
+}
+
+async function fetchPdfContent(url: string): Promise<FetchResult> {
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; ArticleSummarizer/1.0)',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  
+  return new Promise((resolve, reject) => {
+    // Aggressively suppress all console output during PDF parsing
+    const originalConsoleLog = console.log;
+    const originalConsoleWarn = console.warn;
+    const originalConsoleError = console.error;
+    const originalStdoutWrite = process.stdout.write;
+    const originalStderrWrite = process.stderr.write;
+    
+    // Override all console methods
+    console.log = () => {};
+    console.warn = () => {};
+    console.error = () => {};
+    
+    // Override stdout/stderr writes
+    process.stdout.write = () => true;
+    process.stderr.write = () => true;
+    
+    const pdfParser = new PDFParser();
+    
+    const cleanup = () => {
+      // Restore all original methods
+      console.log = originalConsoleLog;
+      console.warn = originalConsoleWarn;
+      console.error = originalConsoleError;
+      process.stdout.write = originalStdoutWrite;
+      process.stderr.write = originalStderrWrite;
+    };
+    
+    pdfParser.on('pdfParser_dataError', (errData: any) => {
+      cleanup();
+      reject(new Error(`PDF parsing error: ${errData.parserError}`));
+    });
+    
+    pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
+      cleanup();
+      try {
+        // Extract text from PDF data
+        let content = '';
+        
+        if (pdfData.Pages) {
+          for (const page of pdfData.Pages) {
+            if (page.Texts) {
+              for (const textItem of page.Texts) {
+                if (textItem.R) {
+                  for (const run of textItem.R) {
+                    if (run.T) {
+                      // Decode URI component and replace encoded spaces
+                      const decodedText = decodeURIComponent(run.T);
+                      content += decodedText + ' ';
+                    }
+                  }
+                }
+              }
+              content += '\n';
+            }
+          }
+        }
+        
+        const title = extractTitleFromPdfText(content) || 'PDF Document';
+        
+        // Create a simple HTML structure for consistency with proper escaping
+        const htmlContent = `<html><head><title>${htmlEscape(title)}</title></head><body><pre>${htmlEscape(content)}</pre></body></html>`;
+        
+        resolve({
+          title,
+          content: content.trim(),
+          extractedUrl: url,
+          htmlContent
+        });
+      } catch (error) {
+        reject(new Error(`PDF text extraction error: ${error}`));
+      }
+    });
+    
+    // Parse the PDF buffer
+    pdfParser.parseBuffer(buffer);
+  });
+}
+
+const TITLE_SEARCH_LINES = 10;
+const MIN_TITLE_LENGTH = 10;
+const MAX_TITLE_LENGTH = 200;
+
+function extractTitleFromPdfText(text: string): string | null {
+  const lines = text.split('\n').filter(line => line.trim().length > 0);
+  
+  // Try to find the first substantial line as title
+  for (const line of lines.slice(0, TITLE_SEARCH_LINES)) {
+    const trimmed = line.trim();
+    if (trimmed.length > MIN_TITLE_LENGTH && trimmed.length < MAX_TITLE_LENGTH) {
+      // Avoid lines that look like headers, footers, or page numbers
+      if (!/^\d+$/.test(trimmed) && !trimmed.includes('Page ') && !trimmed.includes('©')) {
+        return trimmed;
+      }
+    }
+  }
+  
+  return null;
 }
 
 export async function fetchContent(url: string, isSilent = false): Promise<FetchResult> {
@@ -16,6 +150,14 @@ export async function fetchContent(url: string, isSilent = false): Promise<Fetch
     parsedUrl = new URL(url);
   } catch {
     throw new Error('Invalid URL provided');
+  }
+
+  // Check if it's a PDF URL and handle it specially
+  if (isPdfUrl(parsedUrl.toString())) {
+    if (!isSilent) {
+      console.log('  📄 PDFファイルを検出しました。PDF解析を開始します...');
+    }
+    return await fetchPdfContent(parsedUrl.toString());
   }
 
   // Try regular fetch first
