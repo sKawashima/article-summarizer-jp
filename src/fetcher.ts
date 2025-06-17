@@ -44,19 +44,31 @@ async function fetchPdfContent(url: string): Promise<FetchResult> {
   const buffer = Buffer.from(await response.arrayBuffer());
   
   return new Promise((resolve, reject) => {
-    // Use environment variable to suppress PDF2JSON warnings safely
-    const originalEnvValue = process.env.PDF2JSON_DISABLE_LOGS;
-    process.env.PDF2JSON_DISABLE_LOGS = '1';
+    // Aggressively suppress all console output during PDF parsing
+    const originalConsoleLog = console.log;
+    const originalConsoleWarn = console.warn;
+    const originalConsoleError = console.error;
+    const originalStdoutWrite = process.stdout.write;
+    const originalStderrWrite = process.stderr.write;
+    
+    // Override all console methods
+    console.log = () => {};
+    console.warn = () => {};
+    console.error = () => {};
+    
+    // Override stdout/stderr writes
+    process.stdout.write = () => true;
+    process.stderr.write = () => true;
     
     const pdfParser = new PDFParser();
     
     const cleanup = () => {
-      // Restore original environment variable
-      if (originalEnvValue === undefined) {
-        delete process.env.PDF2JSON_DISABLE_LOGS;
-      } else {
-        process.env.PDF2JSON_DISABLE_LOGS = originalEnvValue;
-      }
+      // Restore all original methods
+      console.log = originalConsoleLog;
+      console.warn = originalConsoleWarn;
+      console.error = originalConsoleError;
+      process.stdout.write = originalStdoutWrite;
+      process.stderr.write = originalStderrWrite;
     };
     
     pdfParser.on('pdfParser_dataError', (errData: any) => {
