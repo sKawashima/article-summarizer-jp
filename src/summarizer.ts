@@ -100,6 +100,38 @@ function cleanDetailsOutput(rawDetails: string): string {
   return cleaned;
 }
 
+function truncateContent(content: string, maxTokens: number = 150000): string {
+  // Rough token estimation: 1 token ≈ 4 characters for Japanese text
+  const maxChars = maxTokens * 4;
+  
+  if (content.length <= maxChars) {
+    return content;
+  }
+  
+  // Try to truncate at paragraph or sentence boundaries
+  const truncated = content.substring(0, maxChars);
+  
+  // Find the last paragraph break
+  const lastParagraph = truncated.lastIndexOf('\n\n');
+  if (lastParagraph > maxChars * 0.8) {
+    return truncated.substring(0, lastParagraph);
+  }
+  
+  // Find the last sentence break
+  const lastSentence = Math.max(
+    truncated.lastIndexOf('。'),
+    truncated.lastIndexOf('.'),
+    truncated.lastIndexOf('！'),
+    truncated.lastIndexOf('？')
+  );
+  if (lastSentence > maxChars * 0.8) {
+    return truncated.substring(0, lastSentence + 1);
+  }
+  
+  // Fallback to character limit
+  return truncated + '...';
+}
+
 async function generateCombinedSummaryData(title: string, htmlContent: string, anthropic: Anthropic): Promise<CombinedSummaryData> {
   const tool = {
     name: 'extract_article_summary',
@@ -129,6 +161,8 @@ async function generateCombinedSummaryData(title: string, htmlContent: string, a
 
   const systemPrompt = `You are an expert Japanese content analyst and translator. You excel at creating concise summaries, natural translations, and relevant tags in Japanese.`;
 
+  const truncatedContent = truncateContent(htmlContent);
+  
   const userPrompt = `Analyze the following article and extract comprehensive summary data.
 
 **Requirements:**
@@ -141,7 +175,7 @@ async function generateCombinedSummaryData(title: string, htmlContent: string, a
 Article Title: ${title}
 
 HTML Content:
-${htmlContent}
+${truncatedContent}
 
 Use the extract_article_summary tool to provide the structured output.`;
 
@@ -179,6 +213,8 @@ async function generateDetails(title: string, htmlContent: string, anthropic: An
 
   const systemPrompt = `You are an expert Japanese content analyst and translator. You can analyze and translate content from any language into Japanese. Your specialty is creating detailed, comprehensive descriptions of articles in Japanese while preserving key information and media elements.`;
 
+  const truncatedContent = truncateContent(htmlContent);
+
   const userPrompt = `以下の記事コンテンツの詳細な日本語の説明を作成してください。
 
 **要件:**
@@ -197,7 +233,7 @@ async function generateDetails(title: string, htmlContent: string, anthropic: An
 記事タイトル: ${title}
 
 HTMLコンテンツ:
-${htmlContent}`
+${truncatedContent}`
 
   // Use Sonnet as default for better speed
   const model = 'claude-3-5-sonnet-20241022';
