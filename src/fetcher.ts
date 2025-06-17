@@ -1,12 +1,123 @@
 import fetch from 'node-fetch';
 import { launch } from 'puppeteer';
 import { extractTextContent } from './extractor.js';
+import PDFParser from 'pdf2json';
 
 interface FetchResult {
   title: string;
   content: string;
   extractedUrl: string;
   htmlContent: string;
+}
+
+function isPdfUrl(url: string): boolean {
+  return url.toLowerCase().includes('.pdf') || url.toLowerCase().includes('pdf');
+}
+
+async function fetchPdfContent(url: string): Promise<FetchResult> {
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; ArticleSummarizer/1.0)',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  
+  return new Promise((resolve, reject) => {
+    // Temporarily suppress stdout and stderr to block PDF.js warnings
+    const originalStdoutWrite = process.stdout.write;
+    const originalStderrWrite = process.stderr.write;
+    
+    process.stdout.write = function(string: string) {
+      if (typeof string === 'string' && string.startsWith('Warning:')) {
+        return true; // Suppress PDF.js warnings
+      }
+      return originalStdoutWrite.call(process.stdout, string);
+    };
+    
+    process.stderr.write = function(string: string) {
+      if (typeof string === 'string' && string.startsWith('Warning:')) {
+        return true; // Suppress PDF.js warnings
+      }
+      return originalStderrWrite.call(process.stderr, string);
+    };
+    
+    const pdfParser = new PDFParser();
+    
+    pdfParser.on('pdfParser_dataError', (errData: any) => {
+      // Restore original write methods
+      process.stdout.write = originalStdoutWrite;
+      process.stderr.write = originalStderrWrite;
+      reject(new Error(`PDF parsing error: ${errData.parserError}`));
+    });
+    
+    pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
+      // Restore original write methods
+      process.stdout.write = originalStdoutWrite;
+      process.stderr.write = originalStderrWrite;
+      try {
+        // Extract text from PDF data
+        let content = '';
+        
+        if (pdfData.Pages) {
+          for (const page of pdfData.Pages) {
+            if (page.Texts) {
+              for (const textItem of page.Texts) {
+                if (textItem.R) {
+                  for (const run of textItem.R) {
+                    if (run.T) {
+                      // Decode URI component and replace encoded spaces
+                      const decodedText = decodeURIComponent(run.T);
+                      content += decodedText + ' ';
+                    }
+                  }
+                }
+              }
+              content += '\n';
+            }
+          }
+        }
+        
+        const title = extractTitleFromPdfText(content) || 'PDF Document';
+        
+        // Create a simple HTML structure for consistency
+        const htmlContent = `<html><head><title>${title}</title></head><body><pre>${content}</pre></body></html>`;
+        
+        resolve({
+          title,
+          content: content.trim(),
+          extractedUrl: url,
+          htmlContent
+        });
+      } catch (error) {
+        reject(new Error(`PDF text extraction error: ${error}`));
+      }
+    });
+    
+    // Parse the PDF buffer
+    pdfParser.parseBuffer(buffer);
+  });
+}
+
+function extractTitleFromPdfText(text: string): string | null {
+  const lines = text.split('\n').filter(line => line.trim().length > 0);
+  
+  // Try to find the first substantial line as title
+  for (const line of lines.slice(0, 10)) {
+    const trimmed = line.trim();
+    if (trimmed.length > 10 && trimmed.length < 200) {
+      // Avoid lines that look like headers, footers, or page numbers
+      if (!/^\d+$/.test(trimmed) && !trimmed.includes('Page ') && !trimmed.includes('©')) {
+        return trimmed;
+      }
+    }
+  }
+  
+  return null;
 }
 
 export async function fetchContent(url: string, isSilent = false): Promise<FetchResult> {
@@ -16,6 +127,14 @@ export async function fetchContent(url: string, isSilent = false): Promise<Fetch
     parsedUrl = new URL(url);
   } catch {
     throw new Error('Invalid URL provided');
+  }
+
+  // Check if it's a PDF URL and handle it specially
+  if (isPdfUrl(parsedUrl.toString())) {
+    if (!isSilent) {
+      console.log('  📄 PDFファイルを検出しました。PDF解析を開始します...');
+    }
+    return await fetchPdfContent(parsedUrl.toString());
   }
 
   // Try regular fetch first

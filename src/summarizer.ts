@@ -100,13 +100,18 @@ function cleanDetailsOutput(rawDetails: string): string {
   return cleaned;
 }
 
-function truncateContent(content: string, maxTokens: number = 150000): string {
-  // Rough token estimation: 1 token ≈ 4 characters for Japanese text
-  const maxChars = maxTokens * 4;
+function truncateContent(content: string, maxTokens: number = 100000): string {
+  // More conservative token estimation: 1 token ≈ 3 characters for mixed content
+  const maxChars = maxTokens * 3;
+  
+  console.log(`  🔍 コンテンツ長: ${content.length}文字, 制限: ${maxChars}文字 (${maxTokens}トークン)`);
   
   if (content.length <= maxChars) {
+    console.log('  ✅ コンテンツは制限内です');
     return content;
   }
+  
+  console.log('  ⚠️  コンテンツが長すぎます。切り詰めます...');
   
   // Try to truncate at paragraph or sentence boundaries
   const truncated = content.substring(0, maxChars);
@@ -114,7 +119,9 @@ function truncateContent(content: string, maxTokens: number = 150000): string {
   // Find the last paragraph break
   const lastParagraph = truncated.lastIndexOf('\n\n');
   if (lastParagraph > maxChars * 0.8) {
-    return truncated.substring(0, lastParagraph);
+    const result = truncated.substring(0, lastParagraph);
+    console.log(`  ✂️  段落区切りで切り詰め: ${result.length}文字`);
+    return result;
   }
   
   // Find the last sentence break
@@ -125,11 +132,15 @@ function truncateContent(content: string, maxTokens: number = 150000): string {
     truncated.lastIndexOf('？')
   );
   if (lastSentence > maxChars * 0.8) {
-    return truncated.substring(0, lastSentence + 1);
+    const result = truncated.substring(0, lastSentence + 1);
+    console.log(`  ✂️  文区切りで切り詰め: ${result.length}文字`);
+    return result;
   }
   
   // Fallback to character limit
-  return truncated + '...';
+  const result = truncated + '...';
+  console.log(`  ✂️  文字数制限で切り詰め: ${result.length}文字`);
+  return result;
 }
 
 async function generateCombinedSummaryData(title: string, htmlContent: string, anthropic: Anthropic): Promise<CombinedSummaryData> {
