@@ -1,6 +1,26 @@
 import { extract } from '@extractus/article-extractor';
 import { JSDOM } from 'jsdom';
 
+function suppressConsole<T>(fn: () => T): T {
+  const originalError = console.error;
+  const originalWarn = console.warn;
+  const originalLog = console.log;
+  
+  // Suppress console output during JSDOM operations
+  console.error = () => {};
+  console.warn = () => {};
+  console.log = () => {};
+  
+  try {
+    return fn();
+  } finally {
+    // Restore original console methods
+    console.error = originalError;
+    console.warn = originalWarn;
+    console.log = originalLog;
+  }
+}
+
 interface ExtractedContent {
   title: string;
   content: string;
@@ -8,7 +28,7 @@ interface ExtractedContent {
 }
 
 function extractArticleHtml(html: string): string {
-  const dom = new JSDOM(html);
+  const dom = suppressConsole(() => new JSDOM(html));
   const document = dom.window.document;
   
   // Remove script, style, and other non-content elements
@@ -124,7 +144,7 @@ export async function extractTextContent(html: string): Promise<ExtractedContent
     
     if (article?.content && article.content.length > 100) {
       // Clean up the content by removing HTML tags
-      const dom = new JSDOM(article.content);
+      const dom = suppressConsole(() => new JSDOM(article.content));
       const textContent = dom.window.document.body.textContent || '';
       
       // Apply content cleaning
@@ -143,7 +163,7 @@ export async function extractTextContent(html: string): Promise<ExtractedContent
   }
 
   // Fallback to basic extraction
-  const dom = new JSDOM(html);
+  const dom = suppressConsole(() => new JSDOM(html));
   const document = dom.window.document;
   
   // Extract title
