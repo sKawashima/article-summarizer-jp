@@ -2,6 +2,7 @@ import fetch from 'node-fetch';
 import { launch } from 'puppeteer';
 import { extractTextContent } from './extractor.js';
 import PDFParser from 'pdf2json';
+import { escape } from 'html-escaper';
 
 interface FetchResult {
   title: string;
@@ -24,8 +25,8 @@ function isPdfUrl(url: string): boolean {
     }
     return false;
   } catch {
-    // Fallback to simple string check if URL parsing fails
-    return url.toLowerCase().includes('.pdf');
+    // More specific fallback: check for .pdf followed by query/fragment/end
+    return url.toLowerCase().match(/\.pdf(\?|#|$)/) !== null;
   }
 }
 
@@ -43,37 +44,28 @@ async function fetchPdfContent(url: string): Promise<FetchResult> {
   const buffer = Buffer.from(await response.arrayBuffer());
   
   return new Promise((resolve, reject) => {
-    // Temporarily suppress stdout and stderr to block PDF.js warnings
-    const originalStdoutWrite = process.stdout.write;
-    const originalStderrWrite = process.stderr.write;
-    
-    process.stdout.write = function(string: string) {
-      if (typeof string === 'string' && string.startsWith('Warning:')) {
-        return true; // Suppress PDF.js warnings
-      }
-      return originalStdoutWrite.call(process.stdout, string);
-    };
-    
-    process.stderr.write = function(string: string) {
-      if (typeof string === 'string' && string.startsWith('Warning:')) {
-        return true; // Suppress PDF.js warnings
-      }
-      return originalStderrWrite.call(process.stderr, string);
-    };
+    // Use environment variable to suppress PDF2JSON warnings safely
+    const originalEnvValue = process.env.PDF2JSON_DISABLE_LOGS;
+    process.env.PDF2JSON_DISABLE_LOGS = '1';
     
     const pdfParser = new PDFParser();
     
+    const cleanup = () => {
+      // Restore original environment variable
+      if (originalEnvValue === undefined) {
+        delete process.env.PDF2JSON_DISABLE_LOGS;
+      } else {
+        process.env.PDF2JSON_DISABLE_LOGS = originalEnvValue;
+      }
+    };
+    
     pdfParser.on('pdfParser_dataError', (errData: any) => {
-      // Restore original write methods
-      process.stdout.write = originalStdoutWrite;
-      process.stderr.write = originalStderrWrite;
+      cleanup();
       reject(new Error(`PDF parsing error: ${errData.parserError}`));
     });
     
     pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
-      // Restore original write methods
-      process.stdout.write = originalStdoutWrite;
-      process.stderr.write = originalStderrWrite;
+      cleanup();
       try {
         // Extract text from PDF data
         let content = '';
@@ -99,8 +91,8 @@ async function fetchPdfContent(url: string): Promise<FetchResult> {
         
         const title = extractTitleFromPdfText(content) || 'PDF Document';
         
-        // Create a simple HTML structure for consistency
-        const htmlContent = `<html><head><title>${title}</title></head><body><pre>${content}</pre></body></html>`;
+        // Create a simple HTML structure for consistency with proper escaping
+        const htmlContent = `<html><head><title>${escape(title)}</title></head><body><pre>${escape(content)}</pre></body></html>`;
         
         resolve({
           title,
