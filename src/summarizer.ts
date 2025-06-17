@@ -101,10 +101,13 @@ function cleanDetailsOutput(rawDetails: string): string {
 }
 
 function truncateContent(content: string, maxTokens: number = 100000): string {
+  // Claude side prompt overhead (≈2k tokens) を見越して余裕を確保
+  const reservedPromptTokens = 2000;
+  const effectiveMaxTokens = maxTokens - reservedPromptTokens;
   // More conservative token estimation: 1 token ≈ 3 characters for mixed content
-  const maxChars = maxTokens * 3;
+  const maxChars = effectiveMaxTokens * 3;
   
-  console.log(`  🔍 コンテンツ長: ${content.length}文字, 制限: ${maxChars}文字 (${maxTokens}トークン)`);
+  console.log(`  🔍 コンテンツ長: ${content.length}文字, 制限: ${maxChars}文字 (${effectiveMaxTokens}トークン + ${reservedPromptTokens}予約)`);
   
   if (content.length <= maxChars) {
     console.log('  ✅ コンテンツは制限内です');
@@ -137,13 +140,13 @@ function truncateContent(content: string, maxTokens: number = 100000): string {
     return result;
   }
   
-  // Fallback to character limit
-  const result = truncated + '...';
+  // Fallback（上限ギリギリを死守）
+  const result = truncated.slice(0, maxChars - 3) + '...';
   console.log(`  ✂️  文字数制限で切り詰め: ${result.length}文字`);
   return result;
 }
 
-async function generateCombinedSummaryData(title: string, htmlContent: string, anthropic: Anthropic): Promise<CombinedSummaryData> {
+async function generateCombinedSummaryData(title: string, truncatedContent: string, anthropic: Anthropic): Promise<CombinedSummaryData> {
   const tool = {
     name: 'extract_article_summary',
     description: 'Extract comprehensive article summary data including title translation, summary, and tags in Japanese',
@@ -171,8 +174,6 @@ async function generateCombinedSummaryData(title: string, htmlContent: string, a
   };
 
   const systemPrompt = `You are an expert Japanese content analyst and translator. You excel at creating concise summaries, natural translations, and relevant tags in Japanese.`;
-
-  const truncatedContent = truncateContent(htmlContent);
   
   const userPrompt = `Analyze the following article and extract comprehensive summary data.
 
@@ -220,11 +221,9 @@ Use the extract_article_summary tool to provide the structured output.`;
 
 // LLM-based thumbnail extraction removed - now using HTML parsing approach
 
-async function generateDetails(title: string, htmlContent: string, anthropic: Anthropic): Promise<string> {
+async function generateDetails(title: string, truncatedContent: string, anthropic: Anthropic): Promise<string> {
 
   const systemPrompt = `You are an expert Japanese content analyst and translator. You can analyze and translate content from any language into Japanese. Your specialty is creating detailed, comprehensive descriptions of articles in Japanese while preserving key information and media elements.`;
-
-  const truncatedContent = truncateContent(htmlContent);
 
   const userPrompt = `以下の記事コンテンツの詳細な日本語の説明を作成してください。
 
@@ -271,10 +270,13 @@ export async function summarizeContent(title: string, htmlContent: string, baseU
   const anthropic = new Anthropic({ apiKey });
 
   try {
+    // 1回だけコンテンツを切り詰めて両方に使用
+    const truncatedContent = truncateContent(htmlContent);
+    
     if (!isSilent) {
       console.log('    🔄 要約・タイトル・タグを生成中...');
     }
-    const { summary, translatedTitle, tags } = await generateCombinedSummaryData(title, htmlContent, anthropic);
+    const { summary, translatedTitle, tags } = await generateCombinedSummaryData(title, truncatedContent, anthropic);
     
     if (!isSilent) {
       console.log('    🔄 サムネイル画像を抽出中...');
@@ -284,7 +286,7 @@ export async function summarizeContent(title: string, htmlContent: string, baseU
     if (!isSilent) {
       console.log('    🔄 詳細を生成中...');
     }
-    const details = await generateDetails(title, htmlContent, anthropic);
+    const details = await generateDetails(title, truncatedContent, anthropic);
 
     return { summary, details, translatedTitle, tags, validImageUrl };
   } catch (error) {

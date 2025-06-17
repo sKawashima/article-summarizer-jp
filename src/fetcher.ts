@@ -11,7 +11,22 @@ interface FetchResult {
 }
 
 function isPdfUrl(url: string): boolean {
-  return url.toLowerCase().includes('.pdf') || url.toLowerCase().includes('pdf');
+  try {
+    const parsedUrl = new URL(url);
+    // Check file extension in pathname
+    if (parsedUrl.pathname.toLowerCase().endsWith('.pdf')) {
+      return true;
+    }
+    // Check for common PDF service patterns
+    const hostname = parsedUrl.hostname.toLowerCase();
+    if (hostname === 'arxiv.org' && parsedUrl.pathname.includes('/pdf/')) {
+      return true;
+    }
+    return false;
+  } catch {
+    // Fallback to simple string check if URL parsing fails
+    return url.toLowerCase().includes('.pdf');
+  }
 }
 
 async function fetchPdfContent(url: string): Promise<FetchResult> {
@@ -103,13 +118,17 @@ async function fetchPdfContent(url: string): Promise<FetchResult> {
   });
 }
 
+const TITLE_SEARCH_LINES = 10;
+const MIN_TITLE_LENGTH = 10;
+const MAX_TITLE_LENGTH = 200;
+
 function extractTitleFromPdfText(text: string): string | null {
   const lines = text.split('\n').filter(line => line.trim().length > 0);
   
   // Try to find the first substantial line as title
-  for (const line of lines.slice(0, 10)) {
+  for (const line of lines.slice(0, TITLE_SEARCH_LINES)) {
     const trimmed = line.trim();
-    if (trimmed.length > 10 && trimmed.length < 200) {
+    if (trimmed.length > MIN_TITLE_LENGTH && trimmed.length < MAX_TITLE_LENGTH) {
       // Avoid lines that look like headers, footers, or page numbers
       if (!/^\d+$/.test(trimmed) && !trimmed.includes('Page ') && !trimmed.includes('©')) {
         return trimmed;
