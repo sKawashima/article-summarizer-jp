@@ -2,7 +2,7 @@ import fetch from 'node-fetch';
 import { launch } from 'puppeteer';
 import { extractTextContent } from './extractor.js';
 import PDFParser from 'pdf2json';
-import { escape } from 'html-escaper';
+import { escape as htmlEscape } from 'html-escaper';
 
 interface FetchResult {
   title: string;
@@ -104,7 +104,7 @@ async function fetchPdfContent(url: string): Promise<FetchResult> {
         const title = extractTitleFromPdfText(content) || 'PDF Document';
         
         // Create a simple HTML structure for consistency with proper escaping
-        const htmlContent = `<html><head><title>${escape(title)}</title></head><body><pre>${escape(content)}</pre></body></html>`;
+        const htmlContent = `<html><head><title>${htmlEscape(title)}</title></head><body><pre>${htmlEscape(content)}</pre></body></html>`;
         
         resolve({
           title,
