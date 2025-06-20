@@ -7,7 +7,8 @@ export async function saveToMarkdown(
   summary: string,
   details: string,
   tags: string[],
-  imageUrl?: string
+  imageUrl?: string,
+  datePrefix?: boolean
 ): Promise<string> {
   // Format current date
   const now = new Date();
@@ -21,7 +22,9 @@ export async function saveToMarkdown(
     .slice(0, 100);                // Limit length
   
   // Create filename using translated title
-  const filename = `📰 ${cleanTitle}.md`;
+  const filename = datePrefix 
+    ? `${dateStr}_${cleanTitle}.md`
+    : `📰 ${cleanTitle}.md`;
   const filepath = join(process.cwd(), filename);
   
   // Format tags

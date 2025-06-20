@@ -4,7 +4,7 @@ import { fetchContent } from './fetcher.js';
 import { summarizeContent } from './summarizer.js';
 import { saveToMarkdown } from './markdown.js';
 
-export async function startWatchMode() {
+export async function startWatchMode(datePrefix?: boolean) {
   if (!config.hasApiKey()) {
     console.log('APIキーが設定されていません。最初に設定を行ってください。');
     await config.configure();
@@ -164,7 +164,7 @@ export async function startWatchMode() {
       const { summary, details, translatedTitle, tags, validImageUrl } = await summarizeContent(title, htmlContent, extractedUrl, true);
       
       addLog('  💾 マークダウンファイルに保存中...');
-      const filename = await saveToMarkdown(translatedTitle, extractedUrl, summary, details, tags, validImageUrl);
+      const filename = await saveToMarkdown(translatedTitle, extractedUrl, summary, details, tags, validImageUrl, datePrefix);
       
       addLog(`✅ 完了: ${filename}`);
     } catch (error) {
