@@ -217,7 +217,7 @@ export async function startWatchMode(datePrefix?: boolean) {
   setupConsoleRedirection();
 
   // Handle exit
-  screen.key(['C-c'], () => {
+  screen.key(['C-c', 'escape'], () => {
     restoreConsole();
     screen.destroy();
     process.exit(0);
@@ -233,6 +233,7 @@ export async function startWatchMode(datePrefix?: boolean) {
   // Initial messages
   addLog('🔍 ウォッチモードを開始しました');
   addLog('URLを入力してEnterキーで送信してください（最大5件並行処理、キューイング対応）');
+  addLog('終了するには ESC キーまたは Ctrl+C を押してください');
   addLog(`⏳ 待機中... (処理中: 0/${maxConcurrent}, キュー: 0)`);
   
   screen.render();
