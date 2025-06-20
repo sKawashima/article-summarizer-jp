@@ -24,6 +24,7 @@ async function main() {
     .argument('[urls...]', 'summarize articles from the provided URLs (supports multiple URLs)')
     .option('--config', 'configure API key')
     .option('-w, --watch', 'start in watch mode for continuous URL input')
+    .option('-d, --date-prefix', 'add date prefix to filename (YYYY-MM-DD_title.md format)')
     .parse();
 
   const options = program.opts();
@@ -37,7 +38,7 @@ async function main() {
     }
 
     if (options.watch) {
-      await startWatchMode();
+      await startWatchMode(options.datePrefix);
       return;
     }
 
@@ -76,7 +77,7 @@ async function main() {
           const { summary, details, translatedTitle, tags, validImageUrl } = await summarizeContent(title, htmlContent, extractedUrl);
           
           console.log(chalk.gray('  💾 マークダウンファイルに保存中...'));
-          const filename = await saveToMarkdown(translatedTitle, extractedUrl, summary, details, tags, validImageUrl);
+          const filename = await saveToMarkdown(translatedTitle, extractedUrl, summary, details, tags, validImageUrl, options.datePrefix);
           
           console.log(chalk.green(`  ✅ 完了: ${filename}\n`));
           return { success: true, filename, url };
