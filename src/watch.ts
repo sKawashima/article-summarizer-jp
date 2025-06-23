@@ -21,7 +21,7 @@ export async function startWatchMode(datePrefix?: boolean) {
     error: console.error,
     warn: console.warn,
     info: console.info,
-    debug: console.debug
+    debug: console.debug,
   };
 
   let logBox: any = null;
@@ -33,7 +33,7 @@ export async function startWatchMode(datePrefix?: boolean) {
         const timestamp = new Date().toLocaleTimeString();
         const message = args.join(' ');
         // Filter out CSS-like content and other unwanted output that might corrupt the display
-        const shouldFilter = (
+        const shouldFilter =
           message.includes('{') ||
           message.includes('css') ||
           message.includes('style') ||
@@ -49,31 +49,30 @@ export async function startWatchMode(datePrefix?: boolean) {
           message.includes('rem') ||
           message.includes('vh') ||
           message.includes('vw') ||
-          message.includes('%') && message.includes(';') ||
+          (message.includes('%') && message.includes(';')) ||
           message.match(/[\{\}]/g) ||
-          message.length > 500 // Very long messages are likely debug output
-        );
-        
+          message.length > 500; // Very long messages are likely debug output
+
         if (!shouldFilter) {
           logBox.log(`[${timestamp}] ${message}`);
         }
       }
     };
-    
+
     console.error = (...args: any[]) => {
       if (logBox) {
         const timestamp = new Date().toLocaleTimeString();
         logBox.log(`[${timestamp}] ERROR: ${args.join(' ')}`);
       }
     };
-    
+
     console.warn = (...args: any[]) => {
       if (logBox) {
         const timestamp = new Date().toLocaleTimeString();
         logBox.log(`[${timestamp}] WARN: ${args.join(' ')}`);
       }
     };
-    
+
     // Suppress info and debug to reduce noise
     console.info = () => {};
     console.debug = () => {};
@@ -92,7 +91,7 @@ export async function startWatchMode(datePrefix?: boolean) {
   const screen = blessed.screen({
     smartCSR: true,
     fullUnicode: true,
-    dockBorders: false
+    dockBorders: false,
   });
 
   // Main container
@@ -101,7 +100,7 @@ export async function startWatchMode(datePrefix?: boolean) {
     top: 0,
     left: 0,
     width: '100%',
-    height: '100%'
+    height: '100%',
   });
 
   // Log area
@@ -112,14 +111,14 @@ export async function startWatchMode(datePrefix?: boolean) {
     width: '100%',
     height: '100%-3',
     border: {
-      type: 'line'
+      type: 'line',
     },
     label: ' 📄 ログ ',
     scrollable: true,
     alwaysScroll: true,
     mouse: true,
     keys: true,
-    tags: false
+    tags: false,
   });
 
   // Input area
@@ -130,10 +129,10 @@ export async function startWatchMode(datePrefix?: boolean) {
     width: '100%',
     height: 3,
     border: {
-      type: 'line'
+      type: 'line',
     },
     label: ' 🔗 URL入力 (Enterで送信) ',
-    inputOnFocus: true
+    inputOnFocus: true,
   });
 
   const processingQueue: Map<string, Promise<void>> = new Map();
@@ -159,13 +158,26 @@ export async function startWatchMode(datePrefix?: boolean) {
       addLog(`📄 処理開始: ${url}`);
       addLog('  📥 コンテンツを取得中...');
       const { title, extractedUrl, htmlContent } = await fetchContent(url, true);
-      
+
       addLog('  🤖 要約・翻訳中...');
-      const { summary, details, translatedTitle, tags, validImageUrl } = await summarizeContent(title, htmlContent, extractedUrl, true);
-      
+      const { summary, details, translatedTitle, tags, validImageUrl } = await summarizeContent(
+        title,
+        htmlContent,
+        extractedUrl,
+        true
+      );
+
       addLog('  💾 マークダウンファイルに保存中...');
-      const filename = await saveToMarkdown(translatedTitle, extractedUrl, summary, details, tags, validImageUrl, datePrefix);
-      
+      const filename = await saveToMarkdown(
+        translatedTitle,
+        extractedUrl,
+        summary,
+        details,
+        tags,
+        validImageUrl,
+        datePrefix
+      );
+
       addLog(`✅ 完了: ${filename}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -181,7 +193,7 @@ export async function startWatchMode(datePrefix?: boolean) {
   inputBox.on('submit', (input: string) => {
     const url = input.trim();
     inputBox.clearValue();
-    
+
     if (!url) {
       inputBox.focus();
       return;
@@ -209,7 +221,7 @@ export async function startWatchMode(datePrefix?: boolean) {
       waitingQueue.push(url);
       addLog(`📋 キューに追加 (待機: ${waitingQueue.length}件)`);
     }
-    
+
     inputBox.focus();
   });
 
@@ -235,7 +247,7 @@ export async function startWatchMode(datePrefix?: boolean) {
   addLog('URLを入力してEnterキーで送信してください（最大5件並行処理、キューイング対応）');
   addLog('終了するには ESC キーまたは Ctrl+C を押してください');
   addLog(`⏳ 待機中... (処理中: 0/${maxConcurrent}, キュー: 0)`);
-  
+
   screen.render();
   inputBox.focus();
 }

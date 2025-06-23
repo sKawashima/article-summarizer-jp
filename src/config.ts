@@ -34,8 +34,8 @@ class ConfigManager {
             return 'APIキーは "sk-" で始まる必要があります';
           }
           return true;
-        }
-      }
+        },
+      },
     ]);
 
     this.store.set('anthropicApiKey', answers.apiKey);

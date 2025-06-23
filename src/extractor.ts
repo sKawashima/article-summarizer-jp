@@ -5,12 +5,12 @@ function suppressConsole<T>(fn: () => T): T {
   const originalError = console.error;
   const originalWarn = console.warn;
   const originalLog = console.log;
-  
+
   // Suppress console output during JSDOM operations
   console.error = () => {};
   console.warn = () => {};
   console.log = () => {};
-  
+
   try {
     return fn();
   } finally {
@@ -30,13 +30,13 @@ interface ExtractedContent {
 function extractArticleHtml(html: string): string {
   const dom = suppressConsole(() => new JSDOM(html));
   const document = dom.window.document;
-  
+
   // Remove script, style, and other non-content elements
   const elementsToRemove = document.querySelectorAll(
     'script, style, noscript, nav, header, footer, aside, .navigation, .nav, .menu, .sidebar, .ads, .advertisement'
   );
   elementsToRemove.forEach((el: Element) => el.remove());
-  
+
   // Try to find main content areas
   const contentSelectors = [
     'article',
@@ -50,22 +50,25 @@ function extractArticleHtml(html: string): string {
     '.article-body',
     '.story-body',
   ];
-  
+
   for (const selector of contentSelectors) {
     const element = document.querySelector(selector);
     if (element?.innerHTML && element.innerHTML.length > 100) {
       return element.innerHTML;
     }
   }
-  
+
   // Fallback to body content
   return document.body?.innerHTML || html;
 }
 
 function cleanExtractedContent(content: string): string {
-  const lines = content.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+  const lines = content
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
   const cleanedLines: string[] = [];
-  
+
   // Common patterns to exclude
   const excludePatterns = [
     /^(advertisement|ad|sponsored|関連記事|広告|PR|プロモーション)/i,
@@ -81,31 +84,31 @@ function cleanExtractedContent(content: string): string {
     /^(source|出典|via|引用元)/i,
     /^(read\s+more|続きを読む|もっと見る)/i,
     /^(back\s+to|戻る|トップに戻る)/i,
-    /^\d{4}[-\/年]\d{1,2}[-\/月]\d{1,2}/,  // Date patterns
-    /^[\d\s\-\/年月日時分秒:]+$/,  // Time/date only lines
-    /^[　\s]*$/,  // Empty or whitespace-only lines
+    /^\d{4}[-\/年]\d{1,2}[-\/月]\d{1,2}/, // Date patterns
+    /^[\d\s\-\/年月日時分秒:]+$/, // Time/date only lines
+    /^[　\s]*$/, // Empty or whitespace-only lines
   ];
-  
+
   // Content length filters
   const minLineLength = 10;
   const maxRepeatedChars = 5;
-  
+
   for (const line of lines) {
     // Skip lines that are too short
     if (line.length < minLineLength) continue;
-    
+
     // Skip lines with too many repeated characters
     if (hasRepeatedChars(line, maxRepeatedChars)) continue;
-    
+
     // Skip lines matching exclude patterns
-    if (excludePatterns.some(pattern => pattern.test(line))) continue;
-    
+    if (excludePatterns.some((pattern) => pattern.test(line))) continue;
+
     // Skip lines that are likely navigation or UI elements
     if (isLikelyUIElement(line)) continue;
-    
+
     cleanedLines.push(line);
   }
-  
+
   return cleanedLines.join('\n\n');
 }
 
@@ -123,38 +126,38 @@ function hasRepeatedChars(text: string, maxRepeated: number): boolean {
 function isLikelyUIElement(line: string): boolean {
   // Check for UI-like patterns
   const uiPatterns = [
-    /^[<>«»‹›\[\](){}]+$/,  // Bracket-only content
-    /^[\d\s\-\+\*\.]+$/,    // Number/symbol-only content
-    /^[　\s]*[▼▲►◄△▽]+[　\s]*$/,  // Arrow symbols
-    /^[　\s]*[■□●○◆◇★☆]+[　\s]*$/,  // Symbol bullets
+    /^[<>«»‹›\[\](){}]+$/, // Bracket-only content
+    /^[\d\s\-\+\*\.]+$/, // Number/symbol-only content
+    /^[　\s]*[▼▲►◄△▽]+[　\s]*$/, // Arrow symbols
+    /^[　\s]*[■□●○◆◇★☆]+[　\s]*$/, // Symbol bullets
     /^(click|クリック|tap|タップ|press|プレス)/i,
     /^(here|こちら|ここ|above|below|上記|下記)/i,
   ];
-  
-  return uiPatterns.some(pattern => pattern.test(line));
+
+  return uiPatterns.some((pattern) => pattern.test(line));
 }
 
 export async function extractTextContent(html: string): Promise<ExtractedContent> {
   // Extract article HTML for LLM processing
   const htmlContent = extractArticleHtml(html);
-  
+
   try {
     // Try using article-extractor first
     const article = await extract(html);
-    
+
     if (article?.content && article.content.length > 100) {
       // Clean up the content by removing HTML tags
       const dom = suppressConsole(() => new JSDOM(article.content));
       const textContent = dom.window.document.body.textContent || '';
-      
+
       // Apply content cleaning
       const cleanedContent = cleanExtractedContent(textContent);
-      
+
       if (cleanedContent.length > 100) {
         return {
           title: article.title || 'Untitled',
           content: cleanedContent.trim(),
-          htmlContent
+          htmlContent,
         };
       }
     }
@@ -165,17 +168,18 @@ export async function extractTextContent(html: string): Promise<ExtractedContent
   // Fallback to basic extraction
   const dom = suppressConsole(() => new JSDOM(html));
   const document = dom.window.document;
-  
+
   // Extract title
-  const title = document.querySelector('title')?.textContent ||
+  const title =
+    document.querySelector('title')?.textContent ||
     document.querySelector('h1')?.textContent ||
     document.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
     'Untitled';
-  
+
   // Remove script and style elements
   const scripts = document.querySelectorAll('script, style, noscript');
   scripts.forEach((el: Element) => el.remove());
-  
+
   // Try to find main content areas
   const contentSelectors = [
     'article',
@@ -189,9 +193,9 @@ export async function extractTextContent(html: string): Promise<ExtractedContent
     '.article-body',
     '.story-body',
   ];
-  
+
   let content = '';
-  
+
   for (const selector of contentSelectors) {
     const element = document.querySelector(selector);
     if (element?.textContent) {
@@ -199,18 +203,18 @@ export async function extractTextContent(html: string): Promise<ExtractedContent
       break;
     }
   }
-  
+
   // If no content found, try to get from body
   if (!content) {
     content = document.body?.textContent || '';
   }
-  
+
   // Clean up whitespace and apply content cleaning
   const cleanedContent = cleanExtractedContent(content);
-  
+
   return {
     title: title.trim(),
     content: cleanedContent.trim(),
-    htmlContent
+    htmlContent,
   };
 }

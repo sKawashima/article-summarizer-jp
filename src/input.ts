@@ -16,8 +16,8 @@ export async function getUrlFromUser(): Promise<string> {
         } catch {
           return '有効なURLを入力してください';
         }
-      }
-    }
+      },
+    },
   ]);
 
   return answers.url;
