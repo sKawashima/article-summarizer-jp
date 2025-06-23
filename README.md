@@ -61,7 +61,7 @@ You'll be prompted to enter your API key, which will be securely stored.
 # Single URL
 article-summarizer-jp https://example.com/article
 
-# Multiple URLs
+# Multiple URLs (supports up to 5 concurrent processing)
 article-summarizer-jp https://example.com/article1 https://example.com/article2 https://example.com/article3
 
 # or use the short alias
@@ -76,11 +76,59 @@ article-summarizer-jp
 asumjp
 ```
 
+### Watch mode (continuous URL input)
+
+```bash
+# Start watch mode for continuous URL input
+article-summarizer-jp --watch
+# or
+asumjp -w
+
+# Watch mode with date prefix
+article-summarizer-jp --watch --date-prefix
+# or
+asumjp -w -d
+```
+
+### Filename options
+
+```bash
+# Add date prefix to filename (YYYY-MM-DD_title.md format)
+article-summarizer-jp --date-prefix https://example.com/article
+# or
+asumjp -d https://example.com/article
+```
+
 ### Development mode (if installed from source)
 
 ```bash
+# Run in development mode with tsx
 npm run dev https://example.com/article
+
+# Run multiple URLs in development mode
+npm run dev https://example.com/article1 https://example.com/article2
+
+# Run with options in development mode
+npm run dev -- --watch
+npm run dev -- --date-prefix https://example.com/article
+
+# Build and run production version
+npm run build
+npm run start https://example.com/article
+
+# Type check without building
+npm run lint
 ```
+
+### Command line options
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--config` | - | Configure or reconfigure API key |
+| `--watch` | `-w` | Start in watch mode for continuous URL input |
+| `--date-prefix` | `-d` | Add date prefix to filename (YYYY-MM-DD_title.md format) |
+| `--version` | `-V` | Display version number |
+| `--help` | `-h` | Display help information |
 
 ## Output
 
