@@ -42,7 +42,7 @@ async function fetchPdfContent(url: string): Promise<FetchResult> {
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
-  
+
   return new Promise((resolve, reject) => {
     // Aggressively suppress all console output during PDF parsing
     const originalConsoleLog = console.log;
@@ -50,18 +50,18 @@ async function fetchPdfContent(url: string): Promise<FetchResult> {
     const originalConsoleError = console.error;
     const originalStdoutWrite = process.stdout.write;
     const originalStderrWrite = process.stderr.write;
-    
+
     // Override all console methods
     console.log = () => {};
     console.warn = () => {};
     console.error = () => {};
-    
+
     // Override stdout/stderr writes
     process.stdout.write = () => true;
     process.stderr.write = () => true;
-    
+
     const pdfParser = new PDFParser();
-    
+
     const cleanup = () => {
       // Restore all original methods
       console.log = originalConsoleLog;
@@ -70,18 +70,18 @@ async function fetchPdfContent(url: string): Promise<FetchResult> {
       process.stdout.write = originalStdoutWrite;
       process.stderr.write = originalStderrWrite;
     };
-    
+
     pdfParser.on('pdfParser_dataError', (errData: any) => {
       cleanup();
       reject(new Error(`PDF parsing error: ${errData.parserError}`));
     });
-    
+
     pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
       cleanup();
       try {
         // Extract text from PDF data
         let content = '';
-        
+
         if (pdfData.Pages) {
           for (const page of pdfData.Pages) {
             if (page.Texts) {
@@ -100,23 +100,23 @@ async function fetchPdfContent(url: string): Promise<FetchResult> {
             }
           }
         }
-        
+
         const title = extractTitleFromPdfText(content) || 'PDF Document';
-        
+
         // Create a simple HTML structure for consistency with proper escaping
         const htmlContent = `<html><head><title>${htmlEscape(title)}</title></head><body><pre>${htmlEscape(content)}</pre></body></html>`;
-        
+
         resolve({
           title,
           content: content.trim(),
           extractedUrl: url,
-          htmlContent
+          htmlContent,
         });
       } catch (error) {
         reject(new Error(`PDF text extraction error: ${error}`));
       }
     });
-    
+
     // Parse the PDF buffer
     pdfParser.parseBuffer(buffer);
   });
@@ -127,8 +127,8 @@ const MIN_TITLE_LENGTH = 10;
 const MAX_TITLE_LENGTH = 200;
 
 function extractTitleFromPdfText(text: string): string | null {
-  const lines = text.split('\n').filter(line => line.trim().length > 0);
-  
+  const lines = text.split('\n').filter((line) => line.trim().length > 0);
+
   // Try to find the first substantial line as title
   for (const line of lines.slice(0, TITLE_SEARCH_LINES)) {
     const trimmed = line.trim();
@@ -139,7 +139,7 @@ function extractTitleFromPdfText(text: string): string | null {
       }
     }
   }
-  
+
   return null;
 }
 
@@ -204,15 +204,15 @@ export async function fetchContent(url: string, isSilent = false): Promise<Fetch
       '--disable-client-side-phishing-detection',
       '--disable-sync',
       '--disable-default-apps',
-      '--disable-extensions'
+      '--disable-extensions',
     ],
     pipe: true, // Use pipes instead of shared memory
-    dumpio: false // Disable dumping of stdout/stderr
+    dumpio: false, // Disable dumping of stdout/stderr
   });
 
   try {
     const page = await browser.newPage();
-    
+
     // Completely suppress all console output from the browser page
     page.on('console', () => {});
     page.on('pageerror', () => {});
@@ -221,7 +221,7 @@ export async function fetchContent(url: string, isSilent = false): Promise<Fetch
     page.on('requestfinished', () => {});
     page.on('load', () => {});
     page.on('domcontentloaded', () => {});
-    
+
     // Disable JavaScript console output by overriding console methods
     await page.evaluateOnNewDocument(() => {
       const noop = () => {};
@@ -245,13 +245,13 @@ export async function fetchContent(url: string, isSilent = false): Promise<Fetch
         count: noop,
         assert: noop,
         profile: noop,
-        profileEnd: noop
+        profileEnd: noop,
       } as any;
     });
-    
+
     // Set user agent to avoid bot detection
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
-    
+
     // Navigate to the URL with increased timeout
     await page.goto(parsedUrl.toString(), {
       waitUntil: 'networkidle2',
@@ -259,11 +259,13 @@ export async function fetchContent(url: string, isSilent = false): Promise<Fetch
     });
 
     // Wait for common content selectors
-    await page.waitForSelector('article, main, .content, #content, body', {
-      timeout: 5000,
-    }).catch(() => {
-      // Continue even if selector not found
-    });
+    await page
+      .waitForSelector('article, main, .content, #content, body', {
+        timeout: 5000,
+      })
+      .catch(() => {
+        // Continue even if selector not found
+      });
 
     // Get page content
     const html = await page.content();

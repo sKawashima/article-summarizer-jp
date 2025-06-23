@@ -50,35 +50,47 @@ async function main() {
       const url = await getUrlFromUser();
       urls = [url];
     }
-    
+
     if (!config.hasApiKey()) {
       console.log(chalk.yellow('APIキーが設定されていません。最初に設定を行ってください。'));
       await config.configure();
     }
 
     console.log(chalk.blue(`📄 ${urls.length}件の記事を処理開始します（最大5件並行処理）...\n`));
-    
+
     const results: { success: boolean; filename?: string; url: string; error?: string }[] = [];
     const maxConcurrent = 5;
-    
+
     // Process URLs in batches with concurrent execution
     for (let i = 0; i < urls.length; i += maxConcurrent) {
       const batch = urls.slice(i, i + maxConcurrent);
       const batchPromises = batch.map(async (url, index) => {
         const globalIndex = i + index + 1;
         const total = urls.length;
-        
+
         try {
           console.log(chalk.blue(`[${globalIndex}/${total}] ${url}`));
           console.log(chalk.gray('  📄 コンテンツを取得中...'));
           const { title, extractedUrl, htmlContent } = await fetchContent(url);
-          
+
           console.log(chalk.gray('  🤖 記事を要約・翻訳中...'));
-          const { summary, details, translatedTitle, tags, validImageUrl } = await summarizeContent(title, htmlContent, extractedUrl);
-          
+          const { summary, details, translatedTitle, tags, validImageUrl } = await summarizeContent(
+            title,
+            htmlContent,
+            extractedUrl
+          );
+
           console.log(chalk.gray('  💾 マークダウンファイルに保存中...'));
-          const filename = await saveToMarkdown(translatedTitle, extractedUrl, summary, details, tags, validImageUrl, options.datePrefix);
-          
+          const filename = await saveToMarkdown(
+            translatedTitle,
+            extractedUrl,
+            summary,
+            details,
+            tags,
+            validImageUrl,
+            options.datePrefix
+          );
+
           console.log(chalk.green(`  ✅ 完了: ${filename}\n`));
           return { success: true, filename, url };
         } catch (error) {
@@ -87,34 +99,34 @@ async function main() {
           return { success: false, url, error: errorMessage };
         }
       });
-      
+
       // Wait for all promises in the current batch to complete
       const batchResults = await Promise.all(batchPromises);
       results.push(...batchResults);
     }
-    
+
     // Show summary
     console.log(chalk.bold('\n📊 処理結果:'));
     console.log(chalk.gray('='.repeat(50)));
-    
-    const successful = results.filter(r => r.success);
-    const failed = results.filter(r => !r.success);
-    
+
+    const successful = results.filter((r) => r.success);
+    const failed = results.filter((r) => !r.success);
+
     console.log(chalk.green(`✅ 成功: ${successful.length}件`));
     if (successful.length > 0) {
-      successful.forEach(result => {
+      successful.forEach((result) => {
         console.log(chalk.gray(`   📄 ${result.filename}`));
       });
     }
-    
+
     if (failed.length > 0) {
       console.log(chalk.red(`\n❌ 失敗: ${failed.length}件`));
-      failed.forEach(result => {
+      failed.forEach((result) => {
         console.log(chalk.gray(`   🔗 ${result.url}`));
         console.log(chalk.gray(`   💥 ${result.error}`));
       });
     }
-    
+
     console.log(chalk.gray('='.repeat(50)));
     console.log(chalk.bold(`🎯 合計: ${results.length}件中 ${successful.length}件成功\n`));
   } catch (error) {
