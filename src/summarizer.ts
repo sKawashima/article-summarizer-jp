@@ -44,7 +44,27 @@ function cleanSummaryOutput(rawSummary: string): string {
   return cleaned;
 }
 
-function cleanDetailsOutput(rawDetails: string): string {
+function convertRelativeToAbsolute(imageUrl: string, baseUrl: string): string {
+  try {
+    // If already absolute, return as is
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return imageUrl;
+    }
+    
+    // Handle protocol-relative URLs
+    if (imageUrl.startsWith('//')) {
+      const parsedBase = new URL(baseUrl);
+      return `${parsedBase.protocol}${imageUrl}`;
+    }
+    
+    // Convert relative to absolute
+    return new URL(imageUrl, baseUrl).href;
+  } catch {
+    return imageUrl; // Return original if conversion fails
+  }
+}
+
+function cleanDetailsOutput(rawDetails: string, baseUrl?: string): string {
   // Remove HTML tags except for media-related ones
   let cleaned = rawDetails;
   
@@ -52,22 +72,48 @@ function cleanDetailsOutput(rawDetails: string): string {
   const mediaPlaceholders: { [key: string]: string } = {};
   let placeholderIndex = 0;
   
-  // Preserve markdown images
-  cleaned = cleaned.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match) => {
+  // Preserve markdown images and convert relative URLs to absolute
+  cleaned = cleaned.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
     const placeholder = `__MEDIA_PLACEHOLDER_${placeholderIndex++}__`;
-    mediaPlaceholders[placeholder] = match;
+    const absoluteUrl = baseUrl ? convertRelativeToAbsolute(url, baseUrl) : url;
+    mediaPlaceholders[placeholder] = `![${alt}](${absoluteUrl})`;
     return placeholder;
   });
   
-  // Preserve markdown links for videos
-  cleaned = cleaned.replace(/\[Video[^]]*\]\([^)]+\)/g, (match) => {
+  // Preserve all markdown links and convert relative URLs to absolute
+  cleaned = cleaned.replace(/\[([^\]]*)\]\(([^)]+)\)/g, (_, linkText, url) => {
     const placeholder = `__MEDIA_PLACEHOLDER_${placeholderIndex++}__`;
-    mediaPlaceholders[placeholder] = match;
+    const absoluteUrl = baseUrl ? convertRelativeToAbsolute(url, baseUrl) : url;
+    mediaPlaceholders[placeholder] = `[${linkText}](${absoluteUrl})`;
     return placeholder;
   });
+  
+  // Convert HTML attributes with URLs to absolute paths before removing tags
+  if (baseUrl) {
+    // Handle src attributes
+    cleaned = cleaned.replace(/src="([^"]+)"/g, (_, url) => {
+      const absoluteUrl = convertRelativeToAbsolute(url, baseUrl);
+      return `src="${absoluteUrl}"`;
+    });
+    
+    // Handle href attributes
+    cleaned = cleaned.replace(/href="([^"]+)"/g, (_, url) => {
+      const absoluteUrl = convertRelativeToAbsolute(url, baseUrl);
+      return `href="${absoluteUrl}"`;
+    });
+  }
   
   // Remove all HTML tags
   cleaned = cleaned.replace(/<[^>]+>/g, '');
+  
+  // Convert standalone URLs that might appear in text
+  if (baseUrl) {
+    // Match URLs that start with / but are not already absolute
+    cleaned = cleaned.replace(/(?:^|\s)(\/[^\s<>]+)(?=\s|$)/g, (match, url) => {
+      const absoluteUrl = convertRelativeToAbsolute(url, baseUrl);
+      return match.replace(url, absoluteUrl);
+    });
+  }
   
   // Restore media placeholders
   Object.keys(mediaPlaceholders).forEach(placeholder => {
@@ -221,7 +267,7 @@ Use the extract_article_summary tool to provide the structured output.`;
 
 // LLM-based thumbnail extraction removed - now using HTML parsing approach
 
-async function generateDetails(title: string, truncatedContent: string, anthropic: Anthropic): Promise<string> {
+async function generateDetails(title: string, truncatedContent: string, anthropic: Anthropic, baseUrl: string): Promise<string> {
 
   const systemPrompt = `You are an expert Japanese content analyst and translator. You can analyze and translate content from any language into Japanese. Your specialty is creating detailed, comprehensive descriptions of articles in Japanese while preserving key information and media elements.`;
 
@@ -262,7 +308,7 @@ ${truncatedContent}`
     .join('\n')
     .trim();
   
-  return cleanDetailsOutput(rawDetails);
+  return cleanDetailsOutput(rawDetails, baseUrl);
 }
 
 export async function summarizeContent(title: string, htmlContent: string, baseUrl: string, isSilent = false): Promise<SummaryResult> {
@@ -286,7 +332,7 @@ export async function summarizeContent(title: string, htmlContent: string, baseU
     if (!isSilent) {
       console.log('    🔄 詳細を生成中...');
     }
-    const details = await generateDetails(title, truncatedContent, anthropic);
+    const details = await generateDetails(title, truncatedContent, anthropic, baseUrl);
 
     return { summary, details, translatedTitle, tags, validImageUrl };
   } catch (error) {
