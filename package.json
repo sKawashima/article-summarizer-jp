@@ -12,8 +12,16 @@
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "lint": "tsc --noEmit",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
     "prepublishOnly": "npm run build",
-    "test": "echo \"Tests not implemented yet\""
+    "test": "echo \"Tests not implemented yet\"",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,js,json}": [
+      "biome format --write"
+    ]
   },
   "repository": {
     "type": "git",
@@ -46,11 +54,14 @@
   "homepage": "https://github.com/sKawashima/article-summarizer-jp#readme",
   "description": "CLI tool for summarizing web articles in Japanese using Anthropic Claude API. Fetches content from URLs and generates both 3-line summaries and full translations in polite Japanese.",
   "devDependencies": {
+    "@biomejs/biome": "^2.0.4",
     "@types/configstore": "^6.0.2",
     "@types/html-escaper": "^3.0.4",
     "@types/inquirer": "^9.0.8",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^24.0.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.2",
     "tsx": "^4.20.1",
     "typescript": "^5.8.3"
   },
