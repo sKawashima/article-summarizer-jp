@@ -22,7 +22,7 @@ export async function saveToMarkdown(
     .slice(0, 100); // Limit length
 
   // Create filename using translated title
-  const filename = datePrefix ? `${dateStr}_${cleanTitle}.md` : `📰 ${cleanTitle}.md`;
+  const filename = datePrefix ? `📰 ${dateStr}_${cleanTitle}.md` : `📰 ${cleanTitle}.md`;
   const filepath = join(process.cwd(), filename);
 
   // Format tags
