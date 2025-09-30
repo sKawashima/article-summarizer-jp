@@ -248,7 +248,7 @@ ${truncatedContent}
 Use the extract_article_summary tool to provide the structured output.`;
 
   const response = await anthropic.messages.create({
-    model: 'claude-3-5-sonnet-20241022',
+    model: 'claude-sonnet-4-5-20250929',
     max_tokens: 8192,
     temperature: 0.3,
     system: systemPrompt,
@@ -306,7 +306,7 @@ HTMLコンテンツ:
 ${truncatedContent}`;
 
   // Use Sonnet as default for better speed
-  const model = 'claude-3-5-sonnet-20241022';
+  const model = 'claude-sonnet-4-5-20250929';
 
   const response = await anthropic.messages.create({
     model,
