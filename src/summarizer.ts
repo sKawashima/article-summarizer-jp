@@ -344,7 +344,7 @@ export async function summarizeContent(
     }
     const { summary, translatedTitle, tags } = await generateCombinedSummaryData(title, truncatedContent, anthropic);
 
-    // Skip thumbnail extraction and details generation in simplify mode
+    // Skip details generation in simplify mode, but still extract thumbnail
     let validImageUrl: string | undefined;
     let details = '';
 
