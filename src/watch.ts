@@ -4,7 +4,7 @@ import { fetchContent } from './fetcher.js';
 import { summarizeContent } from './summarizer.js';
 import { saveToMarkdown } from './markdown.js';
 
-export async function startWatchMode(datePrefix?: boolean) {
+export async function startWatchMode(datePrefix?: boolean, simplify?: boolean) {
   if (!config.hasApiKey()) {
     console.log('APIキーが設定されていません。最初に設定を行ってください。');
     await config.configure();
@@ -164,7 +164,8 @@ export async function startWatchMode(datePrefix?: boolean) {
         title,
         htmlContent,
         extractedUrl,
-        true
+        true,
+        simplify
       );
 
       addLog('  💾 マークダウンファイルに保存中...');
@@ -175,7 +176,8 @@ export async function startWatchMode(datePrefix?: boolean) {
         details,
         tags,
         validImageUrl,
-        datePrefix
+        datePrefix,
+        simplify
       );
 
       addLog(`✅ 完了: ${filename}`);

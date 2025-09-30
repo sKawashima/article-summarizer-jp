@@ -25,6 +25,7 @@ async function main() {
     .option('--config', 'configure API key')
     .option('-w, --watch', 'start in watch mode for continuous URL input')
     .option('-d, --date-prefix', 'add date prefix to filename (YYYY-MM-DD_title.md format)')
+    .option('-s, --simplify', 'output only 3-line summary without details')
     .parse();
 
   const options = program.opts();
@@ -38,7 +39,7 @@ async function main() {
     }
 
     if (options.watch) {
-      await startWatchMode(options.datePrefix);
+      await startWatchMode(options.datePrefix, options.simplify);
       return;
     }
 
@@ -77,7 +78,9 @@ async function main() {
           const { summary, details, translatedTitle, tags, validImageUrl } = await summarizeContent(
             title,
             htmlContent,
-            extractedUrl
+            extractedUrl,
+            false,
+            options.simplify
           );
 
           console.log(chalk.gray('  💾 マークダウンファイルに保存中...'));
@@ -88,7 +91,8 @@ async function main() {
             details,
             tags,
             validImageUrl,
-            options.datePrefix
+            options.datePrefix,
+            options.simplify
           );
 
           console.log(chalk.green(`  ✅ 完了: ${filename}\n`));

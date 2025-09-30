@@ -329,7 +329,8 @@ export async function summarizeContent(
   title: string,
   htmlContent: string,
   baseUrl: string,
-  isSilent = false
+  isSilent = false,
+  simplifyMode = false
 ): Promise<SummaryResult> {
   const apiKey = config.getApiKey();
   const anthropic = new Anthropic({ apiKey });
@@ -343,15 +344,24 @@ export async function summarizeContent(
     }
     const { summary, translatedTitle, tags } = await generateCombinedSummaryData(title, truncatedContent, anthropic);
 
-    if (!isSilent) {
-      console.log('    🔄 サムネイル画像を抽出中...');
-    }
-    const validImageUrl = extractThumbnailFromHtml(htmlContent, baseUrl);
+    // Skip details generation in simplify mode, but still extract thumbnail
+    let validImageUrl: string | undefined;
+    let details = '';
 
-    if (!isSilent) {
-      console.log('    🔄 詳細を生成中...');
+    if (!simplifyMode) {
+      if (!isSilent) {
+        console.log('    🔄 サムネイル画像を抽出中...');
+      }
+      validImageUrl = extractThumbnailFromHtml(htmlContent, baseUrl);
+
+      if (!isSilent) {
+        console.log('    🔄 詳細を生成中...');
+      }
+      details = await generateDetails(title, truncatedContent, anthropic, baseUrl);
+    } else {
+      // Still extract thumbnail in simplify mode for better visual
+      validImageUrl = extractThumbnailFromHtml(htmlContent, baseUrl);
     }
-    const details = await generateDetails(title, truncatedContent, anthropic, baseUrl);
 
     return { summary, details, translatedTitle, tags, validImageUrl };
   } catch (error) {

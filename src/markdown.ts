@@ -8,7 +8,8 @@ export async function saveToMarkdown(
   details: string,
   tags: string[],
   imageUrl?: string,
-  datePrefix?: boolean
+  datePrefix?: boolean,
+  simplify?: boolean
 ): Promise<string> {
   // Format current date
   const now = new Date();
@@ -35,7 +36,19 @@ export async function saveToMarkdown(
 `
     : '';
 
-  const markdownContent = `[${translatedTitle}](${url})
+  // Build markdown content based on simplify mode
+  const markdownContent = simplify
+    ? `[${translatedTitle}](${url})
+scrap at [[${dateStr}]]
+
+${imageSection}${tagString}
+
+## 3行まとめ
+${summary}
+
+#web_scrap
+`
+    : `[${translatedTitle}](${url})
 scrap at [[${dateStr}]]
 
 ${imageSection}${tagString}
