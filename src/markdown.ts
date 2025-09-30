@@ -41,22 +41,22 @@ export async function saveToMarkdown(
     ? `[${translatedTitle}](${url})
 scrap at [[${dateStr}]]
 
-${imageSection}${tagString}
+${tagString}
 
 ## 3行まとめ
 ${summary}
 
-#web_scrap
+${imageSection}#web_scrap
 `
     : `[${translatedTitle}](${url})
 scrap at [[${dateStr}]]
 
-${imageSection}${tagString}
+${tagString}
 
 ## 3行まとめ
 ${summary}
 
-## 詳細
+${imageSection}## 詳細
 ${details}
 
 #web_scrap
