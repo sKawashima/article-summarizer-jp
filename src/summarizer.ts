@@ -325,6 +325,48 @@ ${truncatedContent}`;
   return cleanDetailsOutput(rawDetails, baseUrl);
 }
 
+export async function shortenTitle(title: string, maxLength: number = 40): Promise<string> {
+  const apiKey = config.getApiKey();
+  const anthropic = new Anthropic({ apiKey });
+
+  try {
+    const systemPrompt = `You are an expert at creating concise, meaningful titles in Japanese. You can condense long titles while preserving their essential meaning.`;
+
+    const userPrompt = `以下のタイトルを${maxLength}文字以内に短縮してください。
+
+**要件:**
+- タイトルの核心的な意味を保持
+- ${maxLength}文字以内に収める
+- ファイル名として適切な形式
+- 重要なキーワードを優先
+- 自然な日本語
+
+元のタイトル: ${title}
+
+短縮されたタイトルのみを返してください。説明や前置きは不要です。`;
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 256,
+      temperature: 0.3,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    });
+
+    const shortenedTitle = response.content
+      .filter((block) => block.type === 'text')
+      .map((block) => block.text)
+      .join('')
+      .trim();
+
+    return shortenedTitle || title.substring(0, maxLength);
+  } catch (error) {
+    // Fallback to simple truncation if API fails
+    console.warn('    ⚠️  タイトル短縮に失敗しました。切り詰めます...');
+    return title.substring(0, maxLength);
+  }
+}
+
 export async function summarizeContent(
   title: string,
   htmlContent: string,
