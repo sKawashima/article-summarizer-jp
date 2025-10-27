@@ -1,5 +1,6 @@
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
+import { shortenTitle } from './summarizer.js';
 
 export async function saveToMarkdown(
   translatedTitle: string,
@@ -15,15 +16,52 @@ export async function saveToMarkdown(
   const now = new Date();
   const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD format
 
+  // Helper function to calculate byte length in UTF-8
+  const getByteLength = (str: string): number => {
+    return Buffer.byteLength(str, 'utf8');
+  };
+
   // Clean translated title for filename (replace invalid characters with underscore)
-  const cleanTitle = translatedTitle
+  let cleanTitle = translatedTitle
     .replace(/[<>:"/\\|?*]/g, '_') // Replace invalid filename characters with underscore
     .replace(/\s+/g, ' ') // Normalize whitespace
-    .trim()
-    .slice(0, 100); // Limit length
+    .trim();
+
+  // Create initial filename parts
+  const prefix = datePrefix ? `📰 ${dateStr}_` : `📰 `;
+  const suffix = '.md';
+
+  // Maximum filename byte length (filesystem limit is typically 255 bytes)
+  // We use 200 bytes as a safe limit to account for various filesystems
+  const MAX_FILENAME_BYTES = 200;
+
+  // Calculate available bytes for the title
+  const fixedPartBytes = getByteLength(prefix) + getByteLength(suffix);
+  const maxTitleBytes = MAX_FILENAME_BYTES - fixedPartBytes;
+
+  // Check if we need to shorten the title
+  if (getByteLength(cleanTitle) > maxTitleBytes) {
+    console.log('    ⚠️  ファイル名が長すぎます。LLMで短縮中...');
+
+    // Calculate rough character limit (assuming average 3 bytes per Japanese character)
+    const estimatedMaxChars = Math.floor(maxTitleBytes / 3);
+
+    // Use LLM to shorten the title intelligently
+    cleanTitle = await shortenTitle(cleanTitle, estimatedMaxChars);
+
+    // After LLM shortening, if still too long, truncate character by character
+    while (getByteLength(cleanTitle) > maxTitleBytes && cleanTitle.length > 0) {
+      cleanTitle = cleanTitle.slice(0, -1);
+    }
+
+    // Trim any trailing whitespace after truncation
+    cleanTitle = cleanTitle.trim();
+
+    console.log(`    ✅ タイトルを短縮しました: "${cleanTitle}"`);
+  }
 
   // Create filename using translated title
-  const filename = datePrefix ? `📰 ${dateStr}_${cleanTitle}.md` : `📰 ${cleanTitle}.md`;
+  const filename = `${prefix}${cleanTitle}${suffix}`;
   const filepath = join(process.cwd(), filename);
 
   // Format tags
