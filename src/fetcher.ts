@@ -143,7 +143,7 @@ function extractTitleFromPdfText(text: string): string | null {
   return null;
 }
 
-export async function fetchContent(url: string, isSilent = false): Promise<FetchResult> {
+export async function fetchContent(url: string, isSilent = false, debug = false): Promise<FetchResult> {
   // Validate and normalize URL
   let parsedUrl: URL;
   try {
@@ -160,8 +160,13 @@ export async function fetchContent(url: string, isSilent = false): Promise<Fetch
     return await fetchPdfContent(parsedUrl.toString());
   }
 
+  let fallbackReason = '';
+
   // Try regular fetch first
   try {
+    if (debug) {
+      console.log('[DEBUG] 通常のfetchを試行中...');
+    }
     const response = await fetch(parsedUrl.toString(), {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; ArticleSummarizer/1.0)',
@@ -173,15 +178,34 @@ export async function fetchContent(url: string, isSilent = false): Promise<Fetch
     }
 
     const html = await response.text();
-    const { title, content, htmlContent } = await extractTextContent(html);
+    if (debug) {
+      console.log(`[DEBUG] 取得したHTML長: ${html.length}文字`);
+    }
+
+    const { title, content, htmlContent } = await extractTextContent(html, debug);
+    if (debug) {
+      console.log(`[DEBUG] 抽出したコンテンツ長: ${content.length}文字`);
+      console.log(`[DEBUG] タイトル: ${title}`);
+    }
 
     if (content.length > 100) {
       return { title, content, extractedUrl: parsedUrl.toString(), htmlContent };
     }
+    fallbackReason = `コンテンツが不十分 (${content.length}文字)`;
   } catch (error) {
-    if (!isSilent) {
-      console.log('Regular fetch failed, trying headless browser...');
-    }
+    fallbackReason = `fetchエラー: ${error instanceof Error ? error.message : String(error)}`;
+  }
+
+  // Fallback to headless browser
+  if (!isSilent) {
+    console.log(`  🔄 ${fallbackReason} - CSR（ヘッドレスブラウザ）を実行中...`);
+  }
+  if (debug) {
+    console.log(`[DEBUG] フォールバック理由: ${fallbackReason}`);
+  }
+
+  if (debug) {
+    console.log('[DEBUG] Puppeteerを起動中...');
   }
 
   // Fallback to headless browser
@@ -212,6 +236,9 @@ export async function fetchContent(url: string, isSilent = false): Promise<Fetch
 
   try {
     const page = await browser.newPage();
+
+    // Set viewport to simulate a real browser
+    await page.setViewport({ width: 1920, height: 1080 });
 
     // Completely suppress all console output from the browser page
     page.on('console', () => {});
@@ -249,8 +276,14 @@ export async function fetchContent(url: string, isSilent = false): Promise<Fetch
       } as any;
     });
 
-    // Set user agent to avoid bot detection
-    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
+    // Set more realistic user agent to avoid bot detection
+    await page.setUserAgent(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    );
+
+    if (debug) {
+      console.log('[DEBUG] ページへ移動中...');
+    }
 
     // Navigate to the URL with increased timeout
     await page.goto(parsedUrl.toString(), {
@@ -258,18 +291,42 @@ export async function fetchContent(url: string, isSilent = false): Promise<Fetch
       timeout: 30000,
     });
 
+    if (debug) {
+      console.log('[DEBUG] ページ読み込み完了、コンテンツセレクタを待機中...');
+    }
+
     // Wait for common content selectors
     await page
       .waitForSelector('article, main, .content, #content, body', {
         timeout: 5000,
       })
       .catch(() => {
-        // Continue even if selector not found
+        if (debug) {
+          console.log('[DEBUG] コンテンツセレクタが見つかりませんでした');
+        }
       });
+
+    // Additional wait for JavaScript rendering
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    if (debug) {
+      console.log('[DEBUG] 追加待機完了、HTMLを取得中...');
+    }
 
     // Get page content
     const html = await page.content();
-    const { title, content, htmlContent } = await extractTextContent(html);
+    if (debug) {
+      console.log(`[DEBUG] Puppeteerで取得したHTML長: ${html.length}文字`);
+    }
+
+    const { title, content, htmlContent } = await extractTextContent(html, debug);
+    if (debug) {
+      console.log(`[DEBUG] Puppeteerで抽出したコンテンツ長: ${content.length}文字`);
+      console.log(`[DEBUG] タイトル: ${title}`);
+      if (content.length < 500) {
+        console.log(`[DEBUG] コンテンツプレビュー: ${content.substring(0, 200)}...`);
+      }
+    }
 
     if (content.length < 100) {
       throw new Error('Could not extract meaningful content from the page');

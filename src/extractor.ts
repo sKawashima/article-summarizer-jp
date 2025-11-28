@@ -49,6 +49,11 @@ function extractArticleHtml(html: string): string {
     '.entry-content',
     '.article-body',
     '.story-body',
+    // WIRED.jp and similar styled-components sites
+    '.body__inner-container',
+    '[class*="BodyWrapper"]',
+    '[class*="article__body"]',
+    '[class*="ArticleBody"]',
   ];
 
   for (const selector of contentSelectors) {
@@ -62,12 +67,19 @@ function extractArticleHtml(html: string): string {
   return document.body?.innerHTML || html;
 }
 
-function cleanExtractedContent(content: string): string {
+function cleanExtractedContent(content: string, debug = false): string {
   const lines = content
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
   const cleanedLines: string[] = [];
+
+  if (debug) {
+    console.log(`[DEBUG cleaner] 入力行数: ${lines.length}`);
+    if (lines.length > 0) {
+      console.log(`[DEBUG cleaner] 最初の行の長さ: ${lines[0].length}文字`);
+    }
+  }
 
   // Common patterns to exclude
   const excludePatterns = [
@@ -92,21 +104,39 @@ function cleanExtractedContent(content: string): string {
   // Content length filters
   const minLineLength = 10;
   const maxRepeatedChars = 5;
+  // Long lines (like article paragraphs) should not be filtered by repeated chars
+  const longLineThreshold = 100;
 
   for (const line of lines) {
     // Skip lines that are too short
-    if (line.length < minLineLength) continue;
+    if (line.length < minLineLength) {
+      if (debug) console.log(`[DEBUG cleaner] 短すぎてスキップ: "${line.substring(0, 50)}..."`);
+      continue;
+    }
 
-    // Skip lines with too many repeated characters
-    if (hasRepeatedChars(line, maxRepeatedChars)) continue;
+    // Skip lines with too many repeated characters (but not for long content lines)
+    if (line.length < longLineThreshold && hasRepeatedChars(line, maxRepeatedChars)) {
+      if (debug) console.log(`[DEBUG cleaner] 繰り返し文字でスキップ: "${line.substring(0, 50)}..."`);
+      continue;
+    }
 
     // Skip lines matching exclude patterns
-    if (excludePatterns.some((pattern) => pattern.test(line))) continue;
+    if (excludePatterns.some((pattern) => pattern.test(line))) {
+      if (debug) console.log(`[DEBUG cleaner] パターンマッチでスキップ: "${line.substring(0, 50)}..."`);
+      continue;
+    }
 
     // Skip lines that are likely navigation or UI elements
-    if (isLikelyUIElement(line)) continue;
+    if (isLikelyUIElement(line)) {
+      if (debug) console.log(`[DEBUG cleaner] UI要素としてスキップ: "${line.substring(0, 50)}..."`);
+      continue;
+    }
 
     cleanedLines.push(line);
+  }
+
+  if (debug) {
+    console.log(`[DEBUG cleaner] クリーニング後の行数: ${cleanedLines.length}`);
   }
 
   return cleanedLines.join('\n\n');
@@ -137,21 +167,36 @@ function isLikelyUIElement(line: string): boolean {
   return uiPatterns.some((pattern) => pattern.test(line));
 }
 
-export async function extractTextContent(html: string): Promise<ExtractedContent> {
+export async function extractTextContent(html: string, debug = false): Promise<ExtractedContent> {
   // Extract article HTML for LLM processing
   const htmlContent = extractArticleHtml(html);
 
   try {
     // Try using article-extractor first
+    if (debug) {
+      console.log('[DEBUG extractor] article-extractorを試行中...');
+    }
     const article = await extract(html);
+
+    if (debug) {
+      console.log(`[DEBUG extractor] article-extractor結果: ${article?.content?.length || 0}文字`);
+    }
 
     if (article?.content && article.content.length > 100) {
       // Clean up the content by removing HTML tags
       const dom = suppressConsole(() => new JSDOM(article.content));
       const textContent = dom.window.document.body.textContent || '';
 
+      if (debug) {
+        console.log(`[DEBUG extractor] HTML除去後: ${textContent.length}文字`);
+      }
+
       // Apply content cleaning
-      const cleanedContent = cleanExtractedContent(textContent);
+      const cleanedContent = cleanExtractedContent(textContent, debug);
+
+      if (debug) {
+        console.log(`[DEBUG extractor] クリーニング後: ${cleanedContent.length}文字`);
+      }
 
       if (cleanedContent.length > 100) {
         return {
@@ -161,8 +206,15 @@ export async function extractTextContent(html: string): Promise<ExtractedContent
         };
       }
     }
-  } catch {
+  } catch (error) {
+    if (debug) {
+      console.log(`[DEBUG extractor] article-extractorエラー: ${error}`);
+    }
     // Continue to fallback
+  }
+
+  if (debug) {
+    console.log('[DEBUG extractor] フォールバック抽出を開始...');
   }
 
   // Fallback to basic extraction
@@ -192,25 +244,57 @@ export async function extractTextContent(html: string): Promise<ExtractedContent
     '.entry-content',
     '.article-body',
     '.story-body',
+    // WIRED.jp and similar styled-components sites
+    '.body__inner-container',
+    '[class*="BodyWrapper"]',
+    '[class*="article__body"]',
+    '[class*="ArticleBody"]',
   ];
 
   let content = '';
 
   for (const selector of contentSelectors) {
     const element = document.querySelector(selector);
-    if (element?.textContent) {
+    if (element?.textContent && element.textContent.trim().length > 100) {
       content = element.textContent;
+      if (debug) {
+        console.log(`[DEBUG extractor] セレクタ "${selector}" で${content.length}文字を抽出`);
+      }
       break;
     }
   }
 
-  // If no content found, try to get from body
+  // If no content found, try extracting all <p> tags (fallback for SPAs)
+  if (!content || content.trim().length < 100) {
+    if (debug) {
+      console.log('[DEBUG extractor] <p>タグからの抽出を試行...');
+    }
+    const paragraphs = document.querySelectorAll('p');
+    const paragraphTexts: string[] = [];
+    paragraphs.forEach((p: Element) => {
+      const text = p.textContent?.trim();
+      if (text && text.length > 20) {
+        paragraphTexts.push(text);
+      }
+    });
+    if (paragraphTexts.length > 0) {
+      content = paragraphTexts.join('\n\n');
+      if (debug) {
+        console.log(`[DEBUG extractor] <p>タグから${paragraphTexts.length}段落、${content.length}文字を抽出`);
+      }
+    }
+  }
+
+  // If still no content found, try to get from body
   if (!content) {
     content = document.body?.textContent || '';
+    if (debug) {
+      console.log(`[DEBUG extractor] bodyから${content.length}文字を抽出`);
+    }
   }
 
   // Clean up whitespace and apply content cleaning
-  const cleanedContent = cleanExtractedContent(content);
+  const cleanedContent = cleanExtractedContent(content, debug);
 
   return {
     title: title.trim(),
