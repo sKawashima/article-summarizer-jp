@@ -26,6 +26,7 @@ async function main() {
     .option('-w, --watch', 'start in watch mode for continuous URL input')
     .option('-d, --date-prefix', 'add date prefix to filename (YYYY-MM-DD_title.md format)')
     .option('-s, --simplify', 'output only 3-line summary without details')
+    .option('--debug', 'enable debug logging for content fetching')
     .parse();
 
   const options = program.opts();
@@ -72,7 +73,7 @@ async function main() {
         try {
           console.log(chalk.blue(`[${globalIndex}/${total}] ${url}`));
           console.log(chalk.gray('  📄 コンテンツを取得中...'));
-          const { title, extractedUrl, htmlContent } = await fetchContent(url);
+          const { title, extractedUrl, htmlContent } = await fetchContent(url, false, options.debug);
 
           console.log(chalk.gray('  🤖 記事を要約・翻訳中...'));
           const { summary, details, translatedTitle, tags, validImageUrl } = await summarizeContent(
