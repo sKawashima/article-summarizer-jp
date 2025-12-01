@@ -58,7 +58,7 @@
     "@types/configstore": "^6.0.2",
     "@types/html-escaper": "^3.0.4",
     "@types/inquirer": "^9.0.8",
-    "@types/jsdom": "^21.1.7",
+    "@types/jsdom": "^27.0.0",
     "@types/node": "^24.0.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.1.2",
@@ -75,7 +75,7 @@
     "configstore": "^7.0.0",
     "html-escaper": "^3.0.3",
     "inquirer": "^12.6.3",
-    "jsdom": "^26.1.0",
+    "jsdom": "^27.2.0",
     "node-fetch": "^3.3.2",
     "pdf2json": "^4.0.0",
     "puppeteer": "^24.10.0"
