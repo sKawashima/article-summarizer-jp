@@ -74,7 +74,7 @@
     "commander": "^14.0.0",
     "configstore": "^7.0.0",
     "html-escaper": "^3.0.3",
-    "inquirer": "^12.6.3",
+    "inquirer": "^13.1.0",
     "jsdom": "^27.2.0",
     "node-fetch": "^3.3.2",
     "pdf2json": "^4.0.0",
