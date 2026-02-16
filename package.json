@@ -72,7 +72,7 @@
     "blessed": "^0.1.81",
     "chalk": "^5.4.1",
     "commander": "^14.0.0",
-    "configstore": "^7.0.0",
+    "configstore": "^8.0.0",
     "html-escaper": "^3.0.3",
     "inquirer": "^13.1.0",
     "jsdom": "^27.2.0",
