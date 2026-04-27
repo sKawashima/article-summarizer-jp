@@ -19,7 +19,10 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "*.{ts,js,json}": [
+    "*.{ts,js}": [
+      "biome format --write"
+    ],
+    "!(package-lock).json": [
       "biome format --write"
     ]
   },
