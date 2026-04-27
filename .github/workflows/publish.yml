@@ -7,7 +7,7 @@ on:
 
 permissions:
   id-token: write  # Required for OIDC
-  contents: read
+  contents: write  # git push (version bump) に必要
 
 jobs:
   publish:
