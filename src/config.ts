@@ -9,11 +9,11 @@ class ConfigManager {
   }
 
   hasApiKey(): boolean {
-    return !!this.store.get('anthropicApiKey');
+    return !!this.store.get<string>('anthropicApiKey');
   }
 
   getApiKey(): string {
-    const apiKey = this.store.get('anthropicApiKey');
+    const apiKey = this.store.get<string>('anthropicApiKey');
     if (!apiKey) {
       throw new Error('API key not configured. Run with --config flag first.');
     }
