@@ -69,7 +69,7 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.74.0",
+    "@anthropic-ai/sdk": "^0.92.0",
     "@extractus/article-extractor": "^8.0.19",
     "@types/blessed": "^0.1.25",
     "blessed": "^0.1.81",
