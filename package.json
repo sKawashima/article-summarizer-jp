@@ -81,6 +81,6 @@
     "jsdom": "^29.1.0",
     "node-fetch": "^3.3.2",
     "pdf2json": "^4.0.0",
-    "puppeteer": "^24.10.0"
+    "puppeteer": "^25.5.0"
   }
 }
