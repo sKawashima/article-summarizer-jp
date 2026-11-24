@@ -2,6 +2,16 @@ import Anthropic from '@anthropic-ai/sdk';
 import { config } from './config.js';
 import { extractThumbnailFromHtml } from './thumbnailExtractor.js';
 
+// Claude Sonnet 4.5 is retired on 2026-11-30; use Claude Sonnet 5.5.
+const MODEL = 'claude-sonnet-5-5';
+
+function assertNotRefused(response: Anthropic.Message): void {
+  if (response.stop_reason === 'refusal') {
+    const category = response.stop_details?.category ?? 'unknown';
+    throw new Error(`Claude declined the request (category: ${category})`);
+  }
+}
+
 interface SummaryResult {
   summary: string;
   details: string;
@@ -199,34 +209,31 @@ async function generateCombinedSummaryData(
   truncatedContent: string,
   anthropic: Anthropic
 ): Promise<CombinedSummaryData> {
-  const tool = {
-    name: 'extract_article_summary',
-    description:
-      'Extract comprehensive article summary data including title translation, summary, and tags in Japanese',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        translatedTitle: {
-          type: 'string' as const,
-          description:
-            'Article title translated to natural Japanese. If the original title is already in Japanese, return it as-is. Always respond in Japanese only.',
-        },
-        summary: {
-          type: 'string' as const,
-          description:
-            'Exactly 3 lines of concise Japanese summary in polite form (ですます調). Each line should capture a key point. No empty lines between the 3 lines.',
-        },
-        tags: {
-          type: 'array' as const,
-          items: {
-            type: 'string' as const,
-          },
-          description:
-            'Array of 3-8 relevant tags. Use Japanese for common terms, keep proper nouns in original language. Replace spaces and commas with underscores. Focus on main topics, technologies, concepts, and themes.',
-        },
+  // Structured outputs replace the forced tool call (forced tool_choice returns 400 on Sonnet 5.5).
+  const schema = {
+    type: 'object',
+    properties: {
+      translatedTitle: {
+        type: 'string',
+        description:
+          'Article title translated to natural Japanese. If the original title is already in Japanese, return it as-is. Always respond in Japanese only.',
       },
-      required: ['translatedTitle', 'summary', 'tags'],
+      summary: {
+        type: 'string',
+        description:
+          'Exactly 3 lines of concise Japanese summary in polite form (ですます調). Each line should capture a key point. No empty lines between the 3 lines.',
+      },
+      tags: {
+        type: 'array',
+        items: {
+          type: 'string',
+        },
+        description:
+          'Array of 3-8 relevant tags. Use Japanese for common terms, keep proper nouns in original language. Replace spaces and commas with underscores. Focus on main topics, technologies, concepts, and themes.',
+      },
     },
+    required: ['translatedTitle', 'summary', 'tags'],
+    additionalProperties: false,
   };
 
   const systemPrompt = `You are an expert Japanese content analyst and translator. You excel at creating concise summaries, natural translations, and relevant tags in Japanese.`;
@@ -243,27 +250,33 @@ async function generateCombinedSummaryData(
 Article Title: ${title}
 
 HTML Content:
-${truncatedContent}
-
-Use the extract_article_summary tool to provide the structured output.`;
+${truncatedContent}`;
 
   const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-5-20250929',
-    max_tokens: 8192,
-    temperature: 0.3,
+    model: MODEL,
+    max_tokens: 16000,
+    output_config: {
+      effort: 'low',
+      format: { type: 'json_schema', schema },
+    },
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],
-    tools: [tool],
-    tool_choice: { type: 'tool', name: 'extract_article_summary' },
   });
 
-  // Extract tool use result
-  const toolUse = response.content.find((block) => block.type === 'tool_use');
-  if (!toolUse || toolUse.type !== 'tool_use') {
-    throw new Error('Tool use response not found');
+  assertNotRefused(response);
+  if (response.stop_reason === 'max_tokens') {
+    throw new Error('Summary response was truncated (max_tokens reached)');
   }
 
-  const result = toolUse.input as CombinedSummaryData;
+  const jsonText = response.content
+    .filter((block) => block.type === 'text')
+    .map((block) => block.text)
+    .join('');
+  if (!jsonText) {
+    throw new Error('Structured summary response not found');
+  }
+
+  const result = JSON.parse(jsonText) as CombinedSummaryData;
 
   // Clean the summary output
   const cleanedSummary = cleanSummaryOutput(result.summary);
@@ -305,16 +318,15 @@ async function generateDetails(
 HTMLコンテンツ:
 ${truncatedContent}`;
 
-  // Use Sonnet as default for better speed
-  const model = 'claude-sonnet-4-5-20250929';
-
   const response = await anthropic.messages.create({
-    model,
-    max_tokens: 8192,
-    temperature: 0.1,
+    model: MODEL,
+    max_tokens: 16000,
+    output_config: { effort: 'low' },
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],
   });
+
+  assertNotRefused(response);
 
   const rawDetails = response.content
     .filter((block) => block.type === 'text')
@@ -346,12 +358,14 @@ export async function shortenTitle(title: string, maxLength: number = 40): Promi
 短縮されたタイトルのみを返してください。説明や前置きは不要です。`;
 
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 256,
-      temperature: 0.3,
+      model: MODEL,
+      max_tokens: 1024,
+      output_config: { effort: 'low' },
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     });
+
+    assertNotRefused(response);
 
     const shortenedTitle = response.content
       .filter((block) => block.type === 'text')
